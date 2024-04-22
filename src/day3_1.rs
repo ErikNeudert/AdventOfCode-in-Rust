@@ -51,15 +51,17 @@ fn main() -> std::io::Result<()> {
 
 fn fill_map_from_text(reader: BufReader<File>, map: &mut BTreeMap<Point, Token>) -> Result<(), io::Error> {
     for (y, line) in reader.lines().enumerate() {
-        let line2: String = match line {
+        let line: String = match line {
             Ok(line) => line,
             Err(e) => panic!("Error reading line {}", e)
         };
-        let mut char_iter: Peekable<Enumerate<Chars>> = line2.chars().enumerate().peekable();
+        let mut char_iter: Peekable<Enumerate<Chars>> = line.chars().enumerate().peekable();
 
         loop {
             let (x, char) = match &char_iter.peek() {
-                Some((idx, char)) => (idx, *char),
+                //it's very important to dereference the usize and char here,
+                //as it's a double mutable borrow else, as we'd have a mutable reference to x / idx
+                Some((idx, char)) => (*idx, *char),
                 None => break
             };
             if char == '.' {
@@ -76,7 +78,7 @@ fn fill_map_from_text(reader: BufReader<File>, map: &mut BTreeMap<Point, Token>)
                 //e.g. # in ...123#..
                 token = extract_symbol(&mut char_iter);
             }
-            if let Some(old_value) = map.insert(Point::new(y, *x), token) {
+            if let Some(old_value) = map.insert(Point::new(y, x), token) {
                 panic!("Duplicate value in map, should not happen! {:?}", old_value);
             }
         }
