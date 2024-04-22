@@ -1,0 +1,59 @@
+467..114..
+...*......
+..35..633.
+......#...
+617*......
+.....+.58.
+..592.....
+......755.
+...$.*....
+.664.598..
+
+above as example: Nr = Number, Sy = Symbol
+Nr at 0x0 len 3
+Nr at 5x0 len 3
+Sy at 3x1 len 1
+Nr at 2x2 len 2 ##
+Nr at 6x2 len 3
+Sy at 6x3 len 1
+Nr at 0x4 len 3
+Sy at 3x4 len 1
+
+sort by coordinates as key (x,y)
+Nr at 0x0 len 3
+Nr at 0x4 len 3
+Nr at 2x2 len 2 ##
+Sy at 3x1 len 1
+Sy at 3x4 len 1
+Nr at 5x0 len 3
+Nr at 6x2 len 3
+Sy at 6x3 len 1
+
+calculate adjacent range for ## e.g 2x2 
+    -> x-1 to x+len, y-1 to y+1
+    => 1x1 to 4x3
+
+same with y/x, why should that work? because y has precedence?
+=> 1x1 to 3x4, all that is bigger than 1x1 and smaller (inclusive) than 3x4
+Nr at 0x0 len 3
+Nr at 0x5 len 3
+Sy at 1x3 len 1
+Nr at 2x2 len 2 ##
+Nr at 2x6 len 3
+Sy at 3x6 len 1
+Nr at 4x0 len 3
+Sy at 4x3 len 1
+
+//range containing map?
+-> map.find_in_range
+
+.....
+.123.
+.....
+
+Number at 1x1 len 3
+adjacent ranges:
+0x0 - 4x2
+
+lookup all elements in the range x/y
+
