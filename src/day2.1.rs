@@ -16,6 +16,7 @@ struct SetOfCube {
 
 impl From<&str> for Game {
     fn from(line: &str) -> Self {
+        //example input:
         //Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green
         if let Some((game_id_str, sets)) = line.split_once(':') {
             let game_id = match game_id_str[5..].parse::<u32>() {
