@@ -10,6 +10,9 @@ use std::fmt;
 use std::cmp;
 
 fn main() -> std::io::Result<()> {
+    std::env::set_var("RUST_LOG", "debug");
+    env_logger::init();
+
     // The missing part wasn't the only issue - one of the gears in the engine is wrong. 
     // A gear is any * symbol that is adjacent to exactly two part numbers. 
     // Its gear ratio is the result of multiplying those two numbers together.
@@ -51,7 +54,7 @@ fn sum_gear_ratios(grid: Grid) -> i32 {
     //for each gear token 
     let tokens = grid.tokens.iter().filter(|(_, token)| token.token_type == TokenType::Gear);
     for (point, token) in tokens {
-        println!("{} {}", point, token);
+        log::trace!("sum gear ratios: {} {}", point, token);
         if token.value.len() != 1 {
             panic!("Gear should always be '*', but was: {}", token.value);
         }
@@ -62,10 +65,10 @@ fn sum_gear_ratios(grid: Grid) -> i32 {
             .map(|(_, t)| t.value.parse::<i32>()
                 .expect(&["Could not parse token value: ", &t.value].join(" ")))
             .collect();
-        if surrounding_nums.len() > 1 {
+        if surrounding_nums.len() == 2 {
             //it's a gear! sum it!
             let num_sum = surrounding_nums.iter().fold(1, |acc, num| acc * num);
-            println!("surroundings summed: {}", num_sum);
+            log::debug!("surroundings summed: {}", num_sum);
             sum += num_sum;
         }
 
@@ -120,7 +123,7 @@ struct Grid {
 
 impl Grid {
     fn put_char(&mut self, y: usize, x: usize, char: char) {
-        // println!("{} {} {}", y, x, char);
+        log::trace!("put_char: {} {} {}", y, x, char);
         if self.internal_map.len() <= y {
             //need to resize
             self.internal_map.resize(y+1, vec![' '])
@@ -144,7 +147,7 @@ impl Grid {
         let token_len = token.value.len();
         let (from_top_left, to_bottom_right) = point.surrounding_range(token_len);
         //scan the area for non '.'
-        println!("surrounding area points: {} {}", from_top_left, to_bottom_right);
+        log::debug!("surrounding area points: {} {}", from_top_left, to_bottom_right);
 
         for y in from_top_left.y..=to_bottom_right.y {
             let mut skip_chars = 0;
@@ -153,11 +156,11 @@ impl Grid {
                     skip_chars -= 1;
                     continue;
                 }
-                println!("{} {}", y, x);
+                log::debug!("{} {}", y, x);
                 //skip the searched tokens range (hope i can just x += len :-)
                 if point.x == x && point.y == y {
-                    //skip the length of the token, to not double track it
-                    skip_chars += token_len;
+                    //skip the length of the token, to not double track it. subtract 1, as we're past this token anyway
+                    skip_chars += token_len - 1;
                     continue;
                 }
                 let char = *&self.internal_map[y][x];
@@ -407,9 +410,9 @@ mod tests {
             .filter(|(_, t)| t.token_type == TokenType::Symbol || t.token_type == TokenType::Gear)
             .collect();
     
-        println!("    surroundings:");
+            log::debug!("    surroundings:");
         for (p, t) in surrounding_symbols.clone() {
-            println!("  {} {}", p, t);
+            log::debug!("  {} {}", p, t);
         }
         assert_eq!("y:1 x:1 Symbol: x".to_string(), format!("{} {}", surrounding_symbols[0].0, surrounding_symbols[0].1));
         assert_eq!("y:1 x:3 Symbol: x".to_string(), format!("{} {}", surrounding_symbols[1].0, surrounding_symbols[1].1));
@@ -417,6 +420,31 @@ mod tests {
         assert_eq!("y:3 x:1 Symbol: x".to_string(), format!("{} {}", surrounding_symbols[3].0, surrounding_symbols[3].1));
         assert_eq!("y:3 x:3 Symbol: x".to_string(), format!("{} {}", surrounding_symbols[4].0, surrounding_symbols[4].1));
         assert_eq!("y:3 x:5 Symbol: x".to_string(), format!("{} {}", surrounding_symbols[5].0, surrounding_symbols[5].1));
+        Ok(())
+    }
+
+    #[test]
+    fn test_gear_beside_number() -> Result<(), io::Error> {
+        let input = "...........\n\
+                     ....*359...\n\
+                     .192.....*.";
+        let lines = Box::new(input.split("\n")
+            .map(|str| Ok(str.to_string())));
+        let mut grid = Grid::new();
+        fill_map_from_text(lines, &mut grid)?;
+
+        let interesting_point = Point::new(1, 4);
+        let token = grid.tokens.get(&interesting_point).unwrap();
+        let surrounding_symbols: Vec<(Point, &Token)> = grid.find_surroundings(&interesting_point, token)
+            .into_iter()
+            .collect();
+    
+        println!("    surroundings:");
+        for (p, t) in surrounding_symbols.clone() {
+            println!("  {} {}", p, t);
+        }
+        assert_eq!("y:1 x:5 Numeric: 359".to_string(), format!("{} {}", surrounding_symbols[0].0, surrounding_symbols[0].1));
+        assert_eq!("y:2 x:1 Numeric: 192".to_string(), format!("{} {}", surrounding_symbols[1].0, surrounding_symbols[1].1));
         Ok(())
     }
 }
