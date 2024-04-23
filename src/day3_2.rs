@@ -349,17 +349,15 @@ mod tests {
         // 467..114..
         // ...*......
         // ..35..633.
-        // ...ab.#...
-        map.insert(Point::new(0, 0), Token::new("467".to_string()));
-        map.insert(Point::new(0, 5), Token::new("114".to_string()));
-        map.insert(Point::new(1, 3), Token::new("*".to_string()));
-        map.insert(Point::new(2, 2), Token::new("35".to_string()));
-        map.insert(Point::new(2, 6), Token::new("633".to_string()));
-        map.insert(Point::new(3, 6), Token::new("#".to_string()));
-        map.insert(Point::new(3, 3), Token::new("ab".to_string()));
-        // map.insert(Point::new(3, 4), Token::new("b".to_string()));
-        // map.insert(Point::new(3, 5), Token::new("c".to_string()));
-
+        // ......755.
+        // ...$.*....
+        // .664.598..
+        let file = File::open("res/day3.test.txt")?;
+        let reader = BufReader::new(file);
+        let mut grid = Grid::new();
+        fill_map_from_text(reader, &mut grid)?;
+        //expected sum:
+        //
         let sum = sum_gear_ratios(map);
         assert_eq!(467 * 35 + 755 * 598, sum);
     }
