@@ -11,7 +11,9 @@ fn main() -> std::io::Result<()> {
     
     let cards: Vec<Card> = parse_lines(Box::new(reader.lines()));
 
-    let 
+    let point_sum = calculate_points_sum(cards);
+
+    println!("Summed points: {}", point_sum);
 
     Ok(())
 }
@@ -23,21 +25,30 @@ struct Card {
     yours: LinkedHashSet<u32>
 }
 
+fn calculate_points_sum(cards: Vec<Card>) -> u32 {
+    cards.into_iter()
+        .map(|card| calculate_winning_points(card))
+        .fold(0, |acc, num| acc + num)
+}
+
 fn calculate_winning_points(card: Card) -> u32 {
-    let res: u32 = 0;
-    for num : card.yours {
-        
+    let mut res: u32 = 0;
+    for num in card.yours {
+        if card.winnings.contains(&num) {
+            if res == 0 {
+                res = 1;
+            } else {
+                res *= 2;
+            }
+        }
     }
+    res
 }
 
 fn parse_lines(iterator: Box<dyn Iterator<Item=Result<String, std::io::Error>>>) -> Vec<Card> {
-    iterator.map(|line| {
-            let line: String = match line {
-                Ok(line) => line,
-                Err(e) => panic!("Error reading line {}", e)
-            };
-            parse_line(&line)
-        })
+    iterator
+        .map(|line| line.expect("Error reading line"))
+        .map(|line| parse_line(&line))
         .collect()
 }
 
@@ -66,6 +77,16 @@ fn parse_line(line: &str) -> Card {
 mod tests {
     use crate::*;
 
+    #[test]
+    fn test_calculate_points_sum() {
+        let input = "Card 1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53\n\
+                     Card 2: 13 32 20 16 61 | 61 30 68 82 17 32 24 19";
+        let lines = Box::new(input.split("\n")
+            .map(|str| Ok(str.to_string())));
+        let cards = parse_lines(lines);
+        let sum = calculate_points_sum(cards);
+        assert_eq!(10, sum);
+    }
     #[test]
     fn test_calculate_winnings() {
         let input = "Card 1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53";
