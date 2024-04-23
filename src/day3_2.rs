@@ -138,51 +138,6 @@ fn fill_map_from_text(reader: BufReader<File>, grid: &mut Grid) -> Result<(), io
     Ok(())
 }
 
-
-// fn extract_gear(iterator: &mut Peekable<Enumerate<Chars>>) -> Token {
-//     let (_, gear) = iterator.next().expect("Expected a gear symbol '*'");
-
-//     Token {
-//         token_type: TokenType::Gear,
-//         value: gear.to_string()
-//     }
-// }
-
-// fn extract_numeric(iterator: &mut Peekable<Enumerate<Chars>>) -> Token {
-//     let result = extract_matching(iterator, |char| char.is_numeric());
-
-//     Token {
-//         token_type: TokenType::Numeric,
-//         value: result
-//     }
-// }
-
-// fn extract_symbol(iterator: &mut Peekable<Enumerate<Chars>>) -> Token {
-//     let result = extract_matching(iterator, |char| (! char.is_numeric() && char != '.'));
-    
-//     Token {
-//         token_type: TokenType::Symbol,
-//         value: result
-//     }
-// }
-
-// fn extract_matching<T: Fn(char) -> bool>(iterator: &mut Peekable<Enumerate<Chars>>, predicate: T) -> String {
-//     let mut result: String = String::new();
-
-//     while let Some((_, char)) = iterator.peek() {
-//         let char = *char;
-//         if predicate(char) {
-//             let (_, next_char) = iterator.next().expect("next should be present, if peek returned Some.");
-//             assert_eq!(char, next_char, "next and peek should be equal!");
-//             result.push(char);
-//         } else {
-//             break;
-//         }
-//     }
-
-//     result
-// }
-
 struct Grid {
     internal_map: Vec<Vec<char>>,
     tokens: BTreeMap<Point, Token>
@@ -357,39 +312,6 @@ mod tests {
     fn test_grid() {
         Grid::new();
     }
-
-    // #[test]
-    // fn test_extract_numeric() {
-    //     let line = "123a";
-    //     let mut char_iter: Peekable<Enumerate<Chars>> = line.chars().enumerate().peekable();
-
-    //     let extracted = extract_numeric(&mut char_iter);
-    //     assert_eq!(Token {token_type: TokenType::Numeric, value: "123".to_string()}, extracted);
-    //     let (_, next_char) = char_iter.next().expect("iterator should have 'a' as next char.");
-    //     assert_eq!('a', next_char);
-    // }
-
-    // #[test]
-    // fn test_extract_gear() {
-    //     let line = "*a123b";
-    //     let mut char_iter: Peekable<Enumerate<Chars>> = line.chars().enumerate().peekable();
-
-    //     let extracted = extract_gear(&mut char_iter);
-    //     assert_eq!(Token {token_type: TokenType::Gear, value: "*".to_string()}, extracted);
-    //     let (_, next_char) = char_iter.next().expect("iterator should have 'a' as next char.");
-    //     assert_eq!('a', next_char);
-    // }
-
-    // #[test]
-    // fn test_extract_symbol() {
-    //     let line = "#a123";
-    //     let mut char_iter: Peekable<Enumerate<Chars>> = line.chars().enumerate().peekable();
-
-    //     let extracted = extract_symbol(&mut char_iter);
-    //     assert_eq!(Token {token_type: TokenType::Symbol, value: "#a".to_string()}, extracted);
-    //     let (_, next_char) = char_iter.next().expect("iterator should have '1' as next char.");
-    //     assert_eq!('1', next_char);
-    // }
 
     #[test]
     fn test_fill_map_from_text() -> Result<(), io::Error> {
