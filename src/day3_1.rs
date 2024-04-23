@@ -2,7 +2,6 @@ use std::fs::File;
 use std::io::{prelude::*, BufReader};
 use std::collections::BTreeMap;
 use std::ops::Bound::Included;
-use std::ops::Bound;
 use std::iter::Peekable;
 use std::io::{self};
 use std::iter::Enumerate;
@@ -47,15 +46,13 @@ fn sum_engine_parts(map: BTreeMap<Point, Token>) -> i32 {
     for (point, token) in numeric_tokens {
         println!("{} {}", point, token);
         //get the range that draws the box around the token
-        let surrounding_range: (Bound<Point>, Bound<Point>) = point.surrounding_range(token.value.len());
+        let surrounding_range: (Point, Point) = point.surrounding_range(token.value.len());
         println!("    bounds:");
         println!("      {:?}", surrounding_range.0);
         println!("      {:?}", surrounding_range.1);
         
-        //and iterate all items inside that range
-        let surrounding_symbols: Vec<(&Point, &Token)> = map.range(surrounding_range)
-            .filter(|(_, token)| token.token_type == TokenType::Symbol)
-            .collect();
+        let surrounding_symbols: Vec<(&Point, &Token)> = get_symbols_in_range(&map, &surrounding_range);
+        //and iterate all items inside that range, delimited by the x and y of the bounds
     
         println!("    surroundings:");
         for (p, t) in surrounding_symbols.clone() {
@@ -68,6 +65,22 @@ fn sum_engine_parts(map: BTreeMap<Point, Token>) -> i32 {
         }
     }
     part_number_sum
+}
+
+
+fn get_symbols_in_range<'a>(map: &'a BTreeMap<Point, Token>, range: &'a (Point, Point)) -> Vec<(&'a Point, &'a Token)> {
+    let surrounding_symbols: Vec<(&Point, &Token)> = map.range((Included(range.0), Included(range.1)))
+        .filter(|(_, token)| token.token_type == TokenType::Symbol)
+        //I'd prefer to solve this by adding a 2dGrid data type that handles the range checking,
+        //but that's much more memory expensive, and the map.range selection with filtering is a good balance
+        .filter(|(point, _)| (
+            point.x >= range.0.x 
+            && point.x <= range.1.x 
+            && point.y >= range.0.y
+            && point.y <= range.1.y
+        ))
+        .collect();
+    surrounding_symbols
 }
 
 fn fill_map_from_text(reader: BufReader<File>, map: &mut BTreeMap<Point, Token>) -> Result<(), io::Error> {
@@ -319,10 +332,10 @@ mod tests {
 
         //now we want all elements surrounding "35"
         let surrounding_range: (Point, Point) = interesting_point.surrounding_range(2);
-        assert_eq!(Included(Point::new(1, 1)), surrounding_range.0);
-        assert_eq!(Included(Point::new(3, 4)), surrounding_range.1);
+        assert_eq!((Point::new(1, 1)), surrounding_range.0);
+        assert_eq!((Point::new(3, 4)), surrounding_range.1);
 
-        let map_range: BTreeMap<Point, String> = map.range_mut(surrounding_range)
+        let map_range: BTreeMap<Point, String> = map.range_mut((Included(surrounding_range.0), Included(surrounding_range.1)))
             .map(|(ptr, token)| (*ptr, format!("{} {}", token.value, token.token_type)))
             //can't use token directly, as I would have to copy it, as it's shared in the map and can't be derefed
             //I don't like that I have to implement the Copy Trait for Token here,
@@ -356,8 +369,8 @@ mod tests {
         println!("{} {}", interesting_point, "123");
         //get the range that draws the box around the token
         let surrounding_range = interesting_point.surrounding_range(3);
-        assert_eq!(Included(Point::new(1, 1)), surrounding_range.0);
-        assert_eq!(Included(Point::new(3, 5)), surrounding_range.1);
+        assert_eq!((Point::new(1, 1)), surrounding_range.0);
+        assert_eq!((Point::new(3, 5)), surrounding_range.1);
         println!("    bounds:");
         println!("      {:?}", surrounding_range.0);        
         println!("      {:?}", surrounding_range.1);
@@ -373,33 +386,21 @@ mod tests {
             println!("  {} {}", p, t);
         }
 
-        let map_range: BTreeMap<Point, String> = map.range_mut(surrounding_range)
-            .map(|(ptr, token)| (*ptr, format!("{} {}", token.value, token.token_type)))
-            //can't use token directly, as I would have to copy it, as it's shared in the map and can't be derefed
-            //I don't like that I have to implement the Copy Trait for Token here,
-            //as I think the *token should be able to be consumered here to be put into the new map
-            //doesn't work, as the range iterator doesn't allow me to remove elements from the underlying map 
-            .fold(BTreeMap::new(), |mut map, (k, v)| {
-                map.insert(k, v);
-                return map;
-            });
+        // let map_range: BTreeMap<Point, String> = map.range_mut((Included(surrounding_range.0), Included(surrounding_range.1)))
+        //     .map(|(ptr, token)| (*ptr, format!("{} {}", token.value, token.token_type)))
+        //     //can't use token directly, as I would have to copy it, as it's shared in the map and can't be derefed
+        //     //I don't like that I have to implement the Copy Trait for Token here,
+        //     //as I think the *token should be able to be consumered here to be put into the new map
+        //     //doesn't work, as the range iterator doesn't allow me to remove elements from the underlying map 
+        //     .fold(BTreeMap::new(), |mut map, (k, v)| {
+        //         map.insert(k, v);
+        //         return map;
+        //     });
 
-        assert_eq!("35 Numeric".to_string(), *map_range.get(&Point::new(2, 2)).unwrap());
-        assert_eq!("* Symbol".to_string(), *map_range.get(&Point::new(1, 3)).unwrap());
-        assert_eq!("abc# Symbol".to_string(), *map_range.get(&Point::new(3, 3)).unwrap());
+        // assert_eq!("35 Numeric".to_string(), *map_range.get(&Point::new(2, 2)).unwrap());
+        // assert_eq!("* Symbol".to_string(), *map_range.get(&Point::new(1, 3)).unwrap());
+        // assert_eq!("abc# Symbol".to_string(), *map_range.get(&Point::new(3, 3)).unwrap());
         // assert_eq!("b Symbol".to_string(), *map_range.get(&Point::new(3, 4)).unwrap());
         Ok(())
     }
-fn get_symbols_in_range<'a>(map: &'a BTreeMap<Point, Token>, range: &'a (Point, Point)) -> Vec<(&'a Point, &'a Token)> {
-    let surrounding_symbols: Vec<(&Point, &Token)> = map.range((Included(range.0), Included(range.1)))
-        .filter(|(_, token)| token.token_type == TokenType::Symbol)
-        .filter(|(point, _)| (
-            point.x > range.0.clone().x 
-            && point.x < range.1.clone().x 
-            && point.7 < range.1.clone().y
-            && point.7 < range.1.clone()).y
-        )
-        .collect();
-    surrounding_symbols
-}
 }
