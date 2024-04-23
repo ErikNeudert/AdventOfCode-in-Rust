@@ -54,7 +54,8 @@ fn parse_lines(iterator: Box<dyn Iterator<Item=Result<String, std::io::Error>>>)
 
 fn parse_line(line: &str) -> Card {
     let (card, nrs) = line.split_once(':').expect("Line should contain a ':'");
-    let card_id: u32 = card.strip_prefix("Card ").expect("Line should start with 'Card '")
+    let card_id: u32 = card.strip_prefix("Card").expect("Line should start with 'Card '")
+        .trim()
         .parse()
         .expect(&format!("'{card}' should have been 'Card x'"));
     let (winning_nrs, your_nrs) = nrs.split_once('|').expect("Right part of string should contain a '|'");
@@ -111,6 +112,18 @@ mod tests {
                 winnings: vec![3].into_iter().collect(),
                 yours: vec![4].into_iter().collect() }
         ];
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_parse_line2() {
+        let input = "Card    1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53";
+        let actual = parse_line(input);
+        let expected = Card {
+            id: 1,
+            winnings: vec![41, 48, 83, 86, 17].into_iter().collect(),
+            yours: vec![83, 86,  6, 31, 17,  9, 48, 53].into_iter().collect(),
+        };
         assert_eq!(expected, actual);
     }
 
