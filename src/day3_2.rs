@@ -10,68 +10,83 @@ use std::fmt;
 use std::cmp;
 
 fn main() -> std::io::Result<()> {
-    //read each line,
-    //parse anything that is not a .,
-    //e.g. numbers, +, *, # etc.
-    //safe the coordinates
-    //calculate adjacency
+    // The missing part wasn't the only issue - one of the gears in the engine is wrong. 
+    // A gear is any * symbol that is adjacent to exactly two part numbers. 
+    // Its gear ratio is the result of multiplying those two numbers together.
 
-    //imageine a grid 8x10
-    //ranging from 0x0 to 7x9
-    //each number e.g. 467 at 0x0 has adjacent fields,
-    //to calculate them we draw a box around that field 
+    // This time, you need to find the gear ratio of every gear and add them all up 
+    // so that the engineer can figure out which gear needs to be replaced.
 
-    //The schematic (the sheet 8x10) contains PartNumbers and Symbols
-    //each SchematicElement has a (enum) Type PartNumbers or Symbols
-    //a length and a coordinate Point (x=column, y=line)
+    // Consider the same engine schematic again:
 
-    //add up the IDs of the games that would have been possible, you get 8.
-        
+    // 467..114..
+    // ...*......
+    // ..35..633.
+    // ......#...
+    // 617*......
+    // .....+.58.
+    // ..592.....
+    // ......755.
+    // ...$.*....
+    // .664.598..
+    // In this schematic, there are two gears. 
+    // The first is in the top left; it has part numbers 467 and 35, so its gear ratio is 16345. 
+    // The second gear is in the lower right; its gear ratio is 451490. 
+    // (The * adjacent to 617 is not a gear because it is only adjacent to one part number.) 
+    // Adding up all of the gear ratios produces 467835.
+
     let file = File::open("res/day3_1.txt")?;
     let reader = BufReader::new(file);
-    let mut map = BTreeMap::new();
+    let mut grid = Grid::new();
 
-    fill_map_from_text(reader, &mut map)?;
+    fill_map_from_text(reader, &mut grid)?;
+    let gear_ratio_sum = sum_gear_ratios(grid.tokens);
 
-    let part_number_sum = sum_engine_parts(map);
-
-    println!("Sum of numeric part numbers: {}", part_number_sum);
+    println!("Sum of gear ratios: {}", gear_ratio_sum);
     Ok(())
 }
 
-fn sum_engine_parts(map: BTreeMap<Point, Token>) -> i32 {
-    let mut part_number_sum = 0;
-    //for each numeric token 
-    let numeric_tokens = map.iter().filter(|(_, token)| token.token_type == TokenType::Numeric);
-    for (point, token) in numeric_tokens {
+fn sum_gear_ratios(map: BTreeMap<Point, Token>) -> i32 {
+    let mut sum = 0;
+    //for each gear token 
+    let tokens = map.iter().filter(|(_, token)| token.token_type == TokenType::Gear);
+    for (point, token) in tokens {
         println!("{} {}", point, token);
+        if token.value.len() != 1 {
+            panic!("Gear should always be '*', but was: {}", token.value);
+        }
         //get the range that draws the box around the token
         let surrounding_range: (Point, Point) = point.surrounding_range(token.value.len());
         println!("    bounds:");
         println!("      {:?}", surrounding_range.0);
         println!("      {:?}", surrounding_range.1);
         
-        let surrounding_symbols: Vec<(&Point, &Token)> = get_symbols_in_range(&map, &surrounding_range);
+        let surrounding_nums: Vec<(&Point, &Token)> = get_in_range(&map, &surrounding_range, TokenType::Numeric);
         //and iterate all items inside that range, delimited by the x and y of the bounds
     
-        println!("    surroundings:");
-        for (p, t) in surrounding_symbols.clone() {
+        let mut surroundings_summed = 0;
+        println!("    surrounding nums:");
+        for (p, t) in surrounding_nums {
             println!("  {} {}", p, t);
+            //multiple surrounding nums
+            if let Ok(number) = t.value.parse::<i32>() {
+                surroundings_summed *= number;
+            } else {
+                panic!("Could not parse token value: {}", t.value);
+            }
         }
-        
-        if !surrounding_symbols.is_empty() {
-            let numeric_part_nr: i32 = token.value.parse().unwrap();
-            part_number_sum += numeric_part_nr;
-        }
+        println!("surroundings summed: {}", surroundings_summed);
+
     }
-    part_number_sum
+    sum
 }
 
-
-fn get_symbols_in_range<'a>(map: &'a BTreeMap<Point, Token>, range: &'a (Point, Point)) -> Vec<(&'a Point, &'a Token)> {
-    let surrounding_symbols: Vec<(&Point, &Token)> = map.range((Included(range.0), Included(range.1)))
-        .filter(|(_, token)| token.token_type == TokenType::Symbol)
-        //I'd prefer to solve this by adding a 2dGrid data type that handles the range checking,
+//turns out it would have been way easier to just have a 2d Array and iterate that.
+//no structs or anything, just recognizing all surroundings by walking around a point.
+fn get_in_range<'a>(map: &'a BTreeMap<Point, Token>, range: &'a (Point, Point), token_type: TokenType) -> Vec<(&'a Point, &'a Token)> {
+    let surroundings: Vec<(&Point, &Token)> = map.range((Included(range.0), Included(range.1)))
+        .filter(|(_, token)| token.token_type == token_type)
+        //I'd prefer to solve this by adding a Grid data type that handles the range checking,
         //but that's much more memory expensive, and the map.range selection with filtering is a good balance
         .filter(|(point, _)| (
             point.x >= range.0.x 
@@ -80,104 +95,210 @@ fn get_symbols_in_range<'a>(map: &'a BTreeMap<Point, Token>, range: &'a (Point, 
             && point.y <= range.1.y
         ))
         .collect();
-    surrounding_symbols
+    surroundings
 }
 
-fn fill_map_from_text(reader: BufReader<File>, map: &mut BTreeMap<Point, Token>) -> Result<(), io::Error> {
+fn fill_map_from_text(reader: BufReader<File>, grid: &mut Grid) -> Result<(), io::Error> {
     for (y, line) in reader.lines().enumerate() {
         let line: String = match line {
             Ok(line) => line,
             Err(e) => panic!("Error reading line {}", e)
         };
         let mut char_iter: Peekable<Enumerate<Chars>> = line.chars().enumerate().peekable();
-
+        
         while let Some((x, char)) = char_iter.peek() {
             let x = *x;
             let char = *char;
-
             if char == '.' {
-                //skip the dot
+                //skip dots
                 char_iter.next(); 
+                grid.put_char(y, x, char);
                 continue;
             }
 
-            let token: Token;
-            if char.is_numeric() {
-                //e.g. 123 in ...123#..
-                token = extract_numeric(&mut char_iter);
-            } else {
-                //e.g. # in ...123#..
-                token = extract_symbol(&mut char_iter);
+            let token_type = TokenType::from(char);
+            let mut token = Token {
+                token_type: token_type,
+                value: String::new()
+            };
+            while let Some((_, char)) = char_iter.peek() {
+                let char = *char;
+                if TokenType::from(char) == token.token_type {
+                    let (_, next_char) = char_iter.next().expect("next should be present due to peek returning Some");
+                    assert_eq!(char, next_char, "next should = peek");
+                    grid.put_char(y, x, char);
+                    token.value.push(char);
+                } else {
+                    break;
+                }
             }
-            if let Some(old_value) = map.insert(Point::new(y, x), token) {
-                panic!("Duplicate value in map, should not happen! {:?}", old_value);
-            }
+            grid.put_token(y, x, token);
         }
     }
     Ok(())
 }
 
-// fn extract_numeric(iterator: Box<dyn Iterator<Item = (usize, char)>>) -> Token {
-fn extract_numeric(iterator: &mut Peekable<Enumerate<Chars>>) -> Token {
-    let result = extract_matching(iterator, |char| char.is_numeric());
 
-    Token {
-        token_type: TokenType::Numeric,
-        value: result
-    }
-}
+// fn extract_gear(iterator: &mut Peekable<Enumerate<Chars>>) -> Token {
+//     let (_, gear) = iterator.next().expect("Expected a gear symbol '*'");
 
-// fn extract_symbol(iterator: Box<dyn Iterator<Item = (usize, char)>>) -> Token {
-fn extract_symbol(iterator: &mut Peekable<Enumerate<Chars>>) -> Token {
-    let result = extract_matching(iterator, |char| (! char.is_numeric() && char != '.'));
+//     Token {
+//         token_type: TokenType::Gear,
+//         value: gear.to_string()
+//     }
+// }
+
+// fn extract_numeric(iterator: &mut Peekable<Enumerate<Chars>>) -> Token {
+//     let result = extract_matching(iterator, |char| char.is_numeric());
+
+//     Token {
+//         token_type: TokenType::Numeric,
+//         value: result
+//     }
+// }
+
+// fn extract_symbol(iterator: &mut Peekable<Enumerate<Chars>>) -> Token {
+//     let result = extract_matching(iterator, |char| (! char.is_numeric() && char != '.'));
     
-    Token {
-        token_type: TokenType::Symbol,
-        value: result
-    }
+//     Token {
+//         token_type: TokenType::Symbol,
+//         value: result
+//     }
+// }
+
+// fn extract_matching<T: Fn(char) -> bool>(iterator: &mut Peekable<Enumerate<Chars>>, predicate: T) -> String {
+//     let mut result: String = String::new();
+
+//     while let Some((_, char)) = iterator.peek() {
+//         let char = *char;
+//         if predicate(char) {
+//             let (_, next_char) = iterator.next().expect("next should be present, if peek returned Some.");
+//             assert_eq!(char, next_char, "next and peek should be equal!");
+//             result.push(char);
+//         } else {
+//             break;
+//         }
+//     }
+
+//     result
+// }
+
+struct Grid {
+    internal_map: Vec<Vec<char>>,
+    tokens: BTreeMap<Point, Token>
 }
-
-fn extract_matching<T: Fn(char) -> bool>(iterator: &mut Peekable<Enumerate<Chars>>, predicate: T) -> String {
-    let mut result: String = String::new();
-
-    while let Some((_, char)) = iterator.peek() {
-        let char = *char;
-        if predicate(char) {
-            let (_, next_char) = iterator.next().expect("next should be present, if peek returned Some.");
-            assert_eq!(char, next_char, "next and peek should be equal!");
-            result.push(char);
-        } else {
-            break;
+impl Grid {
+    fn put_char(&mut self, y: usize, x: usize, char: char) {
+        println!("{} {} {}", y, x, char);
+        if self.internal_map.len() <= y {
+            //need to resize
+            self.internal_map.resize(y+1, vec![' '])
+        }
+        self.internal_map[y].insert(x, char);
+    }
+    fn put_token(&mut self, y: usize, x: usize, token: Token) {
+        let point = Point::new(y, x);
+        if let Some(old_value) = &self.tokens.insert(point, token) {
+            panic!("Duplicate value in map, should not happen! {:?}", old_value);
         }
     }
 
-    result
+    fn new() -> Self {
+        Grid {internal_map: vec![vec![' ']], tokens: BTreeMap::new()}
+    }
+
+    fn find_surroundings(&self, point: Point, token: Token) -> Vec<(Point, &Token)> {
+        let mut result: Vec<(Point, &Token)> = vec![];
+        //calculate the from and to Points:
+        let token_len = token.value.len();
+        let (from_top_left, to_bottom_right) = point.surrounding_range(token_len);
+        //scan the area for non '.'
+        for y in from_top_left.y..to_bottom_right.y {
+            for x in from_top_left.x..to_bottom_right.x {
+                println!("{} {}", y, x);
+                //skip the searched tokens range (hope i can just x += len :-)
+                if point.y == y && x >= point.x && x <= point.x + token_len {
+                // if point.x == x && point.y == y {
+                    //probable solution:
+                    // x += token_len;
+                    continue;
+                }
+                let char = *&self.internal_map[y][x];
+                if char == '.' {
+                    //skip dots
+                    continue;
+                }
+                //we found a non '.', find the start index of the token
+                let char_pos = Point::new(y, x);
+                let token_start: Point = self.find_token_start(char_pos);
+                if let Some(token) = self.tokens.get(&token_start) {
+                    result.push((token_start, token));
+                } else {
+                    panic!("Could not find a token that should be there!\n\
+                              searching adjacents to token: {}, pos: {} \n\
+                              found adjacent char {}, pos: {},\n\
+                              calculated token start: {}", 
+                              token, point,
+                              char, char_pos,
+                              token_start
+                            );
+                }
+            }
+        }
+        result
+    }
+
+    fn find_token_start(&self, current_idx: Point) -> Point {
+        //just walk leftwards from the start index, until you find a non matching token char
+        let mut token_start_x: usize = current_idx.x;
+        let token_type = TokenType::from(self.internal_map[current_idx.y][current_idx.x]);
+        loop {
+            let curr_char = self.internal_map[current_idx.y][token_start_x];
+            if token_type != TokenType::from(curr_char) {
+                break; //found not matching token
+            }
+            if token_start_x == 0 {
+                break; //break due to @start of line
+            }
+            token_start_x -= 1;
+        }
+
+        Point::new(current_idx.y, token_start_x)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
 enum TokenType {
     Numeric,
-    Symbol
+    Symbol,
+    Dot,
+    Gear //denoted by a '*'
+    //it's actually not a gear, but only a maybe gear, as a Gear would be surrounded by two Numerics.
+    //for easier impl we just assume every * is a gear, but only between two Numerics it's a useful gear
 }
 impl fmt::Display for TokenType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             TokenType::Numeric => write!(f, "Numeric"),
-            TokenType::Symbol  => write!(f, "Symbol")
+            TokenType::Symbol  => write!(f, "Symbol"),
+            TokenType::Gear  => write!(f, "Gear"),
+            TokenType::Dot  => write!(f, "Dot")
         }
     }
 }
-
-// struct 2dGrid {
-//     x_map: HashMap<usize, Point>,
-//     y_map: HashMap<usize, Point>,
-//     tokens: HashMap<Point, Token>
-// }
-// impl 2dGrid {
-//     fn find_in_range(from: Point, to: Point) {
-
-//     }
-// }
+impl From<char> for TokenType {
+    fn from(char: char) -> Self {
+        if char.is_numeric() {
+            TokenType::Numeric
+        } else if char == '*' {
+            TokenType::Gear
+        } else if char == '.' {
+            TokenType::Dot
+        } else {
+            TokenType::Symbol
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Eq)]
 struct Token {
@@ -190,15 +311,10 @@ impl fmt::Display for Token {
     }
 }
 
-
 impl Token {
     fn new(value: String) -> Self {
         if let Some(char) = value.chars().next() {
-            if char.is_numeric() {
-                Token {token_type: TokenType::Numeric, value: value}
-            } else {
-                Token {token_type: TokenType::Symbol, value: value}
-            }
+            Token {token_type: TokenType::from(char), value: value}
         } else {
             //empty string
             panic!("Can't construct a Token out of an empty String! {}", value);
@@ -238,33 +354,49 @@ mod tests {
     use crate::*;
 
     #[test]
-    fn test_extract_numeric() {
-        let line = "123a";
-        let mut char_iter: Peekable<Enumerate<Chars>> = line.chars().enumerate().peekable();
-
-        let extracted = extract_numeric(&mut char_iter);
-        assert_eq!(Token {token_type: TokenType::Numeric, value: "123".to_string()}, extracted);
-        let (_, next_char) = char_iter.next().expect("iterator should have 'a' as next char.");
-        assert_eq!('a', next_char);
+    fn test_grid() {
+        Grid::new();
     }
 
-    #[test]
-    fn test_extract_symbol() {
-        let line = "#a123";
-        let mut char_iter: Peekable<Enumerate<Chars>> = line.chars().enumerate().peekable();
+    // #[test]
+    // fn test_extract_numeric() {
+    //     let line = "123a";
+    //     let mut char_iter: Peekable<Enumerate<Chars>> = line.chars().enumerate().peekable();
 
-        let extracted = extract_symbol(&mut char_iter);
-        assert_eq!(Token {token_type: TokenType::Symbol, value: "#a".to_string()}, extracted);
-        let (_, next_char) = char_iter.next().expect("iterator should have '1' as next char.");
-        assert_eq!('1', next_char);
-    }
+    //     let extracted = extract_numeric(&mut char_iter);
+    //     assert_eq!(Token {token_type: TokenType::Numeric, value: "123".to_string()}, extracted);
+    //     let (_, next_char) = char_iter.next().expect("iterator should have 'a' as next char.");
+    //     assert_eq!('a', next_char);
+    // }
+
+    // #[test]
+    // fn test_extract_gear() {
+    //     let line = "*a123b";
+    //     let mut char_iter: Peekable<Enumerate<Chars>> = line.chars().enumerate().peekable();
+
+    //     let extracted = extract_gear(&mut char_iter);
+    //     assert_eq!(Token {token_type: TokenType::Gear, value: "*".to_string()}, extracted);
+    //     let (_, next_char) = char_iter.next().expect("iterator should have 'a' as next char.");
+    //     assert_eq!('a', next_char);
+    // }
+
+    // #[test]
+    // fn test_extract_symbol() {
+    //     let line = "#a123";
+    //     let mut char_iter: Peekable<Enumerate<Chars>> = line.chars().enumerate().peekable();
+
+    //     let extracted = extract_symbol(&mut char_iter);
+    //     assert_eq!(Token {token_type: TokenType::Symbol, value: "#a".to_string()}, extracted);
+    //     let (_, next_char) = char_iter.next().expect("iterator should have '1' as next char.");
+    //     assert_eq!('1', next_char);
+    // }
 
     #[test]
     fn test_fill_map_from_text() -> Result<(), io::Error> {
         let file = File::open("res/day3.test.txt")?;
         let reader = BufReader::new(file);
-        let mut actual_map = BTreeMap::new();
-        fill_map_from_text(reader, &mut actual_map)?;
+        let mut grid = Grid::new();
+        fill_map_from_text(reader, &mut grid)?;
     
         let mut expected_map: BTreeMap<Point, Token> = BTreeMap::new();
         //inserting the following map:
@@ -284,12 +416,12 @@ mod tests {
         // expected_map.insert(Point::new(3, 4), Token::new("b".to_string()));
         // expected_map.insert(Point::new(3, 5), Token::new("c".to_string()));
 
-        assert_eq!(expected_map, actual_map);
+        assert_eq!(expected_map, grid.tokens);
         Ok(())
     }
 
     #[test]
-    fn test_sum_engine_parts() {
+    fn test_sum_gear_ratios() {
         let mut map: BTreeMap<Point, Token> = BTreeMap::new();
         //inserting the following map:
         // 467..114..
@@ -306,8 +438,8 @@ mod tests {
         // map.insert(Point::new(3, 4), Token::new("b".to_string()));
         // map.insert(Point::new(3, 5), Token::new("c".to_string()));
 
-        let sum = sum_engine_parts(map);
-        assert_eq!(467 + 35 + 633, sum);
+        let sum = sum_gear_ratios(map);
+        assert_eq!(467 * 35 + 755 * 598, sum);
     }
 
     #[test]
@@ -347,7 +479,7 @@ mod tests {
             });
 
         assert_eq!("35 Numeric".to_string(), *map_range.get(&Point::new(2, 2)).unwrap());
-        assert_eq!("* Symbol".to_string(), *map_range.get(&Point::new(1, 3)).unwrap());
+        assert_eq!("* Gear".to_string(), *map_range.get(&Point::new(1, 3)).unwrap());
         assert_eq!("abc# Symbol".to_string(), *map_range.get(&Point::new(3, 3)).unwrap());
         // assert_eq!("b Symbol".to_string(), *map_range.get(&Point::new(3, 4)).unwrap());
     }
@@ -362,8 +494,8 @@ mod tests {
         // x.x.x.x
         let file = File::open("res/day3.test2.txt")?;
         let reader = BufReader::new(file);
-        let mut map = BTreeMap::new();
-        fill_map_from_text(reader, &mut map)?;
+        let mut grid = Grid::new();
+        fill_map_from_text(reader, &mut grid)?;
 
         let interesting_point = Point::new(2, 2);
         println!("{} {}", interesting_point, "123");
@@ -376,7 +508,7 @@ mod tests {
         println!("      {:?}", surrounding_range.1);
         
         //and iterate all items inside that range
-        let surrounding_symbols: Vec<(&Point, &Token)> = get_symbols_in_range(&map, &surrounding_range);
+        let surrounding_symbols: Vec<(&Point, &Token)> = get_in_range(&grid.tokens, &surrounding_range, TokenType::Symbol);
         // let surrounding_symbols: Vec<(&Point, &Token)> = map.range(surrounding_range)
         //     .filter(|(_, token)| token.token_type == TokenType::Symbol)
         //     .collect();
