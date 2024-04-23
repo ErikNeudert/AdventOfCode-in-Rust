@@ -58,7 +58,8 @@ fn sum_gear_ratios(grid: Grid) -> i32 {
 
         let surrounding_nums: Vec<i32> = grid.find_surroundings(point, token)
             .into_iter()
-            .map(|(p, t)| t.value.parse::<i32>()
+            .filter(|(_, t)| t.token_type == TokenType::Numeric)
+            .map(|(_, t)| t.value.parse::<i32>()
                 .expect(&["Could not parse token value: ", &t.value].join(" ")))
             .collect();
         if surrounding_nums.len() > 1 {
@@ -72,24 +73,6 @@ fn sum_gear_ratios(grid: Grid) -> i32 {
     sum
 }
 
-//turns out it would have been way easier to just have a 2d Array and iterate that.
-//no structs or anything, just recognizing all surroundings by walking around a point.
-fn get_in_range<'a>(map: &'a BTreeMap<Point, Token>, range: &'a (Point, Point), token_type: TokenType) -> Vec<(&'a Point, &'a Token)> {
-    let surroundings: Vec<(&Point, &Token)> = map.range((Included(range.0), Included(range.1)))
-        .filter(|(_, token)| token.token_type == token_type)
-        //I'd prefer to solve this by adding a Grid data type that handles the range checking,
-        //but that's much more memory expensive, and the map.range selection with filtering is a good balance
-        .filter(|(point, _)| (
-            point.x >= range.0.x 
-            && point.x <= range.1.x 
-            && point.y >= range.0.y
-            && point.y <= range.1.y
-        ))
-        .collect();
-    surroundings
-}
-
-// fn fill_map_from_text(reader: BufReader<File>, grid: &mut Grid) -> Result<(), io::Error> {
 fn fill_map_from_text(iterator: Box<dyn Iterator<Item=Result<String, std::io::Error>>>, grid: &mut Grid) -> Result<(), io::Error> {
     for (y, line) in iterator.enumerate() {
         let line: String = match line {
@@ -113,7 +96,7 @@ fn fill_map_from_text(iterator: Box<dyn Iterator<Item=Result<String, std::io::Er
                 token_type: token_type,
                 value: String::new()
             };
-            while let Some((x, char)) = char_iter.peek() {
+            while let Some((_, char)) = char_iter.peek() {
                 let char = *char;
                 if TokenType::from(char) == token.token_type {
                     let (x, next_char) = char_iter.next().expect("next should be present due to peek returning Some");
@@ -134,6 +117,7 @@ struct Grid {
     internal_map: Vec<Vec<char>>,
     tokens: BTreeMap<Point, Token>
 }
+
 impl Grid {
     fn put_char(&mut self, y: usize, x: usize, char: char) {
         // println!("{} {} {}", y, x, char);
@@ -232,6 +216,7 @@ enum TokenType {
     //it's actually not a gear, but only a maybe gear, as a Gear would be surrounded by two Numerics.
     //for easier impl we just assume every * is a gear, but only between two Numerics it's a useful gear
 }
+
 impl fmt::Display for TokenType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -242,6 +227,7 @@ impl fmt::Display for TokenType {
         }
     }
 }
+
 impl From<char> for TokenType {
     fn from(char: char) -> Self {
         if char.is_numeric() {
@@ -334,10 +320,7 @@ mod tests {
         expected_map.insert(Point::new(2, 6), Token::new("633".to_string()));
         
         //This follows the design decision to combine adjacent symbols:
-        // expected_map.insert(Point::new(3, 6), Token::new("#".to_string()));
         expected_map.insert(Point::new(3, 3), Token::new("abc#".to_string()));
-        // expected_map.insert(Point::new(3, 4), Token::new("b".to_string()));
-        // expected_map.insert(Point::new(3, 5), Token::new("c".to_string()));
 
         assert_eq!(expected_map, grid.tokens);
         Ok(())
@@ -382,10 +365,7 @@ mod tests {
         map.insert(Point::new(1, 3), Token::new("*".to_string()));
         map.insert(interesting_point, Token::new("35".to_string()));
         map.insert(Point::new(2, 6), Token::new("633".to_string()));
-        // map.insert(Point::new(3, 6), Token::new("#".to_string()));
         map.insert(Point::new(3, 3), Token::new("abc#".to_string()));
-        // map.insert(Point::new(3, 4), Token::new("b".to_string()));
-        // map.insert(Point::new(3, 5), Token::new("c".to_string()));
 
         //now we want all elements surrounding "35"
         let surrounding_range: (Point, Point) = interesting_point.surrounding_range(2);
@@ -406,58 +386,37 @@ mod tests {
         assert_eq!("35 Numeric".to_string(), *map_range.get(&Point::new(2, 2)).unwrap());
         assert_eq!("* Gear".to_string(), *map_range.get(&Point::new(1, 3)).unwrap());
         assert_eq!("abc# Symbol".to_string(), *map_range.get(&Point::new(3, 3)).unwrap());
-        // assert_eq!("b Symbol".to_string(), *map_range.get(&Point::new(3, 4)).unwrap());
     }
 
     #[test]
     fn test_map_range_sophisticated() -> Result<(), io::Error> {
-        //inserting the following map:
-        // x.x.x.x
-        // .x.x.x.
-        // x.123.x
-        // .x.x.x.
-        // x.x.x.x
-        let file = File::open("res/day3.test2.txt")?;
-        let reader = BufReader::new(file);
+        let input = "x.x.x.x\n\
+                     .x.x.x.\n\
+                     x.123.x\n\
+                     .x.x.x.\n\
+                     x.x.x.x";
+        let lines = Box::new(input.split("\n")
+            .map(|str| Ok(str.to_string())));
         let mut grid = Grid::new();
-        fill_map_from_text(Box::new(reader.lines()), &mut grid)?;
+        fill_map_from_text(lines, &mut grid)?;
 
         let interesting_point = Point::new(2, 2);
-        println!("{} {}", interesting_point, "123");
-        //get the range that draws the box around the token
-        let surrounding_range = interesting_point.surrounding_range(3);
-        assert_eq!((Point::new(1, 1)), surrounding_range.0);
-        assert_eq!((Point::new(3, 5)), surrounding_range.1);
-        println!("    bounds:");
-        println!("      {:?}", surrounding_range.0);        
-        println!("      {:?}", surrounding_range.1);
-        
-        //and iterate all items inside that range
-        let surrounding_symbols: Vec<(&Point, &Token)> = get_in_range(&grid.tokens, &surrounding_range, TokenType::Symbol);
-        // let surrounding_symbols: Vec<(&Point, &Token)> = map.range(surrounding_range)
-        //     .filter(|(_, token)| token.token_type == TokenType::Symbol)
-        //     .collect();
+        let token = grid.tokens.get(&interesting_point).unwrap();
+        let surrounding_symbols: Vec<(Point, &Token)> = grid.find_surroundings(&interesting_point, token)
+            .into_iter()
+            .filter(|(_, t)| t.token_type == TokenType::Symbol || t.token_type == TokenType::Gear)
+            .collect();
     
         println!("    surroundings:");
         for (p, t) in surrounding_symbols.clone() {
             println!("  {} {}", p, t);
         }
-
-        // let map_range: BTreeMap<Point, String> = map.range_mut((Included(surrounding_range.0), Included(surrounding_range.1)))
-        //     .map(|(ptr, token)| (*ptr, format!("{} {}", token.value, token.token_type)))
-        //     //can't use token directly, as I would have to copy it, as it's shared in the map and can't be derefed
-        //     //I don't like that I have to implement the Copy Trait for Token here,
-        //     //as I think the *token should be able to be consumered here to be put into the new map
-        //     //doesn't work, as the range iterator doesn't allow me to remove elements from the underlying map 
-        //     .fold(BTreeMap::new(), |mut map, (k, v)| {
-        //         map.insert(k, v);
-        //         return map;
-        //     });
-
-        // assert_eq!("35 Numeric".to_string(), *map_range.get(&Point::new(2, 2)).unwrap());
-        // assert_eq!("* Symbol".to_string(), *map_range.get(&Point::new(1, 3)).unwrap());
-        // assert_eq!("abc# Symbol".to_string(), *map_range.get(&Point::new(3, 3)).unwrap());
-        // assert_eq!("b Symbol".to_string(), *map_range.get(&Point::new(3, 4)).unwrap());
+        assert_eq!("y:1 x:1 Symbol: x".to_string(), format!("{} {}", surrounding_symbols[0].0, surrounding_symbols[0].1));
+        assert_eq!("y:1 x:3 Symbol: x".to_string(), format!("{} {}", surrounding_symbols[1].0, surrounding_symbols[1].1));
+        assert_eq!("y:1 x:5 Symbol: x".to_string(), format!("{} {}", surrounding_symbols[2].0, surrounding_symbols[2].1));
+        assert_eq!("y:3 x:1 Symbol: x".to_string(), format!("{} {}", surrounding_symbols[3].0, surrounding_symbols[3].1));
+        assert_eq!("y:3 x:3 Symbol: x".to_string(), format!("{} {}", surrounding_symbols[4].0, surrounding_symbols[4].1));
+        assert_eq!("y:3 x:5 Symbol: x".to_string(), format!("{} {}", surrounding_symbols[5].0, surrounding_symbols[5].1));
         Ok(())
     }
 }
