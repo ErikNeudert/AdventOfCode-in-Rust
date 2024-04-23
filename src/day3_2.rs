@@ -39,43 +39,34 @@ fn main() -> std::io::Result<()> {
     let reader = BufReader::new(file);
     let mut grid = Grid::new();
 
-    fill_map_from_text(reader, &mut grid)?;
-    let gear_ratio_sum = sum_gear_ratios(grid.tokens);
+    fill_map_from_text(Box::new(reader.lines()), &mut grid)?;
+    let gear_ratio_sum = sum_gear_ratios(grid);
 
     println!("Sum of gear ratios: {}", gear_ratio_sum);
     Ok(())
 }
 
-fn sum_gear_ratios(map: BTreeMap<Point, Token>) -> i32 {
+fn sum_gear_ratios(grid: Grid) -> i32 {
     let mut sum = 0;
     //for each gear token 
-    let tokens = map.iter().filter(|(_, token)| token.token_type == TokenType::Gear);
+    let tokens = grid.tokens.iter().filter(|(_, token)| token.token_type == TokenType::Gear);
     for (point, token) in tokens {
         println!("{} {}", point, token);
         if token.value.len() != 1 {
             panic!("Gear should always be '*', but was: {}", token.value);
         }
-        //get the range that draws the box around the token
-        let surrounding_range: (Point, Point) = point.surrounding_range(token.value.len());
-        println!("    bounds:");
-        println!("      {:?}", surrounding_range.0);
-        println!("      {:?}", surrounding_range.1);
-        
-        let surrounding_nums: Vec<(&Point, &Token)> = get_in_range(&map, &surrounding_range, TokenType::Numeric);
-        //and iterate all items inside that range, delimited by the x and y of the bounds
-    
-        let mut surroundings_summed = 0;
-        println!("    surrounding nums:");
-        for (p, t) in surrounding_nums {
-            println!("  {} {}", p, t);
-            //multiple surrounding nums
-            if let Ok(number) = t.value.parse::<i32>() {
-                surroundings_summed *= number;
-            } else {
-                panic!("Could not parse token value: {}", t.value);
-            }
+
+        let surrounding_nums: Vec<i32> = grid.find_surroundings(point, token)
+            .into_iter()
+            .map(|(p, t)| t.value.parse::<i32>()
+                .expect(&["Could not parse token value: ", &t.value].join(" ")))
+            .collect();
+        if surrounding_nums.len() > 1 {
+            //it's a gear! sum it!
+            let num_sum = surrounding_nums.iter().fold(1, |acc, num| acc * num);
+            println!("surroundings summed: {}", num_sum);
+            sum += num_sum;
         }
-        println!("surroundings summed: {}", surroundings_summed);
 
     }
     sum
@@ -98,8 +89,9 @@ fn get_in_range<'a>(map: &'a BTreeMap<Point, Token>, range: &'a (Point, Point), 
     surroundings
 }
 
-fn fill_map_from_text(reader: BufReader<File>, grid: &mut Grid) -> Result<(), io::Error> {
-    for (y, line) in reader.lines().enumerate() {
+// fn fill_map_from_text(reader: BufReader<File>, grid: &mut Grid) -> Result<(), io::Error> {
+fn fill_map_from_text(iterator: Box<dyn Iterator<Item=Result<String, std::io::Error>>>, grid: &mut Grid) -> Result<(), io::Error> {
+    for (y, line) in iterator.enumerate() {
         let line: String = match line {
             Ok(line) => line,
             Err(e) => panic!("Error reading line {}", e)
@@ -121,10 +113,10 @@ fn fill_map_from_text(reader: BufReader<File>, grid: &mut Grid) -> Result<(), io
                 token_type: token_type,
                 value: String::new()
             };
-            while let Some((_, char)) = char_iter.peek() {
+            while let Some((x, char)) = char_iter.peek() {
                 let char = *char;
                 if TokenType::from(char) == token.token_type {
-                    let (_, next_char) = char_iter.next().expect("next should be present due to peek returning Some");
+                    let (x, next_char) = char_iter.next().expect("next should be present due to peek returning Some");
                     assert_eq!(char, next_char, "next should = peek");
                     grid.put_char(y, x, char);
                     token.value.push(char);
@@ -144,7 +136,7 @@ struct Grid {
 }
 impl Grid {
     fn put_char(&mut self, y: usize, x: usize, char: char) {
-        println!("{} {} {}", y, x, char);
+        // println!("{} {} {}", y, x, char);
         if self.internal_map.len() <= y {
             //need to resize
             self.internal_map.resize(y+1, vec![' '])
@@ -162,20 +154,26 @@ impl Grid {
         Grid {internal_map: vec![vec![' ']], tokens: BTreeMap::new()}
     }
 
-    fn find_surroundings(&self, point: Point, token: Token) -> Vec<(Point, &Token)> {
+    fn find_surroundings(&self, point: &Point, token: &Token) -> Vec<(Point, &Token)> {
         let mut result: Vec<(Point, &Token)> = vec![];
         //calculate the from and to Points:
         let token_len = token.value.len();
         let (from_top_left, to_bottom_right) = point.surrounding_range(token_len);
         //scan the area for non '.'
-        for y in from_top_left.y..to_bottom_right.y {
-            for x in from_top_left.x..to_bottom_right.x {
+        println!("surrounding area points: {} {}", from_top_left, to_bottom_right);
+
+        for y in from_top_left.y..=to_bottom_right.y {
+            let mut skip_chars = 0;
+            for x in from_top_left.x..=to_bottom_right.x {
+                if skip_chars > 0 {
+                    skip_chars -= 1;
+                    continue;
+                }
                 println!("{} {}", y, x);
                 //skip the searched tokens range (hope i can just x += len :-)
-                if point.y == y && x >= point.x && x <= point.x + token_len {
-                // if point.x == x && point.y == y {
-                    //probable solution:
-                    // x += token_len;
+                if point.x == x && point.y == y {
+                    //skip the length of the token, to not double track it
+                    skip_chars += token_len;
                     continue;
                 }
                 let char = *&self.internal_map[y][x];
@@ -187,11 +185,14 @@ impl Grid {
                 let char_pos = Point::new(y, x);
                 let token_start: Point = self.find_token_start(char_pos);
                 if let Some(token) = self.tokens.get(&token_start) {
+                    //skip the token, e.g. all chars from start to end
+                    let token_end_x = token_start.x + token.value.len();
+                    skip_chars += token_end_x - x;
                     result.push((token_start, token));
                 } else {
                     panic!("Could not find a token that should be there!\n\
-                              searching adjacents to token: {}, pos: {} \n\
-                              found adjacent char {}, pos: {},\n\
+                              searching adjacents to token: {}, pos: {} \n. \
+                              found adjacent char {}, pos: {},\n. \
                               calculated token start: {}", 
                               token, point,
                               char, char_pos,
@@ -208,12 +209,12 @@ impl Grid {
         let mut token_start_x: usize = current_idx.x;
         let token_type = TokenType::from(self.internal_map[current_idx.y][current_idx.x]);
         loop {
-            let curr_char = self.internal_map[current_idx.y][token_start_x];
-            if token_type != TokenType::from(curr_char) {
-                break; //found not matching token
-            }
             if token_start_x == 0 {
                 break; //break due to @start of line
+            }
+            let previous_char = self.internal_map[current_idx.y][token_start_x - 1];
+            if token_type != TokenType::from(previous_char) {
+                break; //found not matching token
             }
             token_start_x -= 1;
         }
@@ -318,7 +319,7 @@ mod tests {
         let file = File::open("res/day3.test.txt")?;
         let reader = BufReader::new(file);
         let mut grid = Grid::new();
-        fill_map_from_text(reader, &mut grid)?;
+        fill_map_from_text(Box::new(reader.lines()), &mut grid)?;
     
         let mut expected_map: BTreeMap<Point, Token> = BTreeMap::new();
         //inserting the following map:
@@ -343,23 +344,27 @@ mod tests {
     }
 
     #[test]
-    fn test_sum_gear_ratios() {
-        let mut map: BTreeMap<Point, Token> = BTreeMap::new();
+    fn test_sum_gear_ratios() -> Result<(), io::Error>  {
         //inserting the following map:
-        // 467..114..
-        // ...*......
-        // ..35..633.
-        // ......755.
-        // ...$.*....
-        // .664.598..
-        let file = File::open("res/day3.test.txt")?;
-        let reader = BufReader::new(file);
+        let input = "467..114..\n\
+                    ...*......\n\
+                    ..35..633.\n\
+                    ......#...\n\
+                    617*......\n\
+                    .....+.58.\n\
+                    ..592.....\n\
+                    ......755.\n\
+                    ...$.*....\n\
+                    .664.598..";
+        let lines = Box::new(input.split("\n")
+            .map(|str| Ok(str.to_string())));
         let mut grid = Grid::new();
-        fill_map_from_text(reader, &mut grid)?;
+        fill_map_from_text(lines, &mut grid)?;
         //expected sum:
         //
-        let sum = sum_gear_ratios(map);
+        let sum = sum_gear_ratios(grid);
         assert_eq!(467 * 35 + 755 * 598, sum);
+        Ok(())
     }
 
     #[test]
@@ -415,7 +420,7 @@ mod tests {
         let file = File::open("res/day3.test2.txt")?;
         let reader = BufReader::new(file);
         let mut grid = Grid::new();
-        fill_map_from_text(reader, &mut grid)?;
+        fill_map_from_text(Box::new(reader.lines()), &mut grid)?;
 
         let interesting_point = Point::new(2, 2);
         println!("{} {}", interesting_point, "123");
