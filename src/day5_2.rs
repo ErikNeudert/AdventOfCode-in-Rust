@@ -2,6 +2,9 @@ use std::fs::File;
 use std::io::{prelude::*, BufReader};
 // use std::io::{BufReader};
 use std::collections::HashMap;
+use std::thread;
+use std::sync::Mutex;
+use std::sync::Arc;
 
 fn main() -> std::io::Result<()> {
     let file = File::open("res/day5_1.txt")?;
@@ -12,28 +15,62 @@ fn main() -> std::io::Result<()> {
             Err(e) => panic!("Error reading line: {}", e)
         });
     let almanac: Almanac = parse_almanac(Box::new(lines));
-
-
-    //first try it 
-    let min_location = almanac.seeds.clone().into_iter()
-        .flat_map(|(seed, count)| seed..count)
-        .map(|seed| find_destination_mapping(&almanac, ("seed", "location"), seed))
-        .min();
-    println!("min loc: {:?}", min_location);
-
     
-    // let min_location = almanac.seeds.clone().into_iter()
-    //     .flat_map(|(seed, count)| seed..count)
-    //     .map(|seed| find_destination_mapping(&almanac, ("seed", "location"), seed))
-    //     .min();
-    // println!("min loc: {:?}", min_location);
+    let result_mutex: Arc<Mutex<Vec<usize>>> = Arc::new(Mutex::new(vec![]));
+    let almanac_arc: Arc<Almanac> = Arc::new(almanac);
+    let mut handles = vec![];
 
-    // let locs: Vec<(usize, usize)> = almanac.seeds.clone().into_iter()
-    //     // .flat_map(|(seed, count)| seed..count)
-    //     .collect();
-    // println!("locs: {:?}", locs);
+    for (seed, count) in almanac_arc.seeds.clone() {
+        println!("task for seed: {}", seed);
+        let almanac_arc: Arc<Almanac> = Arc::clone(&almanac_arc);
+        let result_arc = Arc::clone(&result_mutex);
+
+        let task = CalculationTask::new((seed, count), almanac_arc, result_arc);
+        handles.push(task.start());
+    }
+
+    for handle in handles {
+        let handle_str = format!("{:?}", handle);
+        println!(" + waiting for handle {:?}", handle_str);
+        handle.join().unwrap();
+        println!(" - joined handle {:?}", handle_str);
+    }
+
+    let res: Vec<usize> = result_mutex.lock().unwrap().to_vec();
+    println!("Result: {:?}", res.into_iter()
+            .min());
 
     Ok(())
+}
+
+struct CalculationTask {
+    range: (usize, usize),
+    almanac: Arc<Almanac>,
+    result: Arc<Mutex<Vec<usize>>>,
+}
+
+impl CalculationTask {
+    fn new(range: (usize, usize), almanac: Arc<Almanac>, result: Arc<Mutex<Vec<usize>>>) -> Self {
+        CalculationTask {
+            range: range,
+            almanac: almanac.clone(),
+            result: result.clone(),
+        }
+    }
+    fn start(&self) -> thread::JoinHandle<()> {
+        let (seed, count) = self.range;
+        let almanac = self.almanac.clone();
+        let result = self.result.clone();
+
+        return thread::spawn(move || { 
+            println!("calculating seed: {}", seed);
+            for num in seed..(count + seed) {
+                let res = find_destination_mapping(&*almanac, ("seed", "location"), num);
+                let mut results = result.lock().unwrap();
+                results.push(res);
+            }
+        });
+    }
 }
 
 struct Almanac {//almanac manager/handler
