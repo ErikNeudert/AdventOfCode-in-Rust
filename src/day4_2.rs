@@ -48,7 +48,7 @@ fn calculate_cards_counts(mut cards: Vec<Card>) -> Vec<usize> {
         //the next n=matches numbers get added 1, for each card of the current index
         for next in 0..matches {
             let next_idx = card_idx + next + 1;
-            println!("card_idx: {}, next: {}, next_idx: {}", card_idx, next, next_idx);
+            // println!("card_idx: {}, next: {}, next_idx: {}", card_idx, next, next_idx);
             if next_idx >= card_counts.len() {
                 panic!("Incorrect number of cards, trying to access idx {}, but have only {} cards", next_idx, card_counts.len());
             }
