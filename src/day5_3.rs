@@ -11,7 +11,7 @@ static PEAK_ALLOC: PeakAlloc = PeakAlloc;
 const DEBUG_PRINTLN: bool = false;
 
 fn main() -> std::io::Result<()> {
-    let file = File::open("res/day5_2.txt")?;
+    let file = File::open("res/day5_1.txt")?;
     let reader = BufReader::new(file);
     let lines = reader.lines()
         .map(|line| match line {
