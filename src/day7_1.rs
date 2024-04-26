@@ -203,6 +203,9 @@ fn parse_line(line: String) -> (Hand, usize) {
 }
 
 /// reduces given values to the max 5 different usizes possible in cards, e.g. to a range of 5
+/// 
+/// Bench Results:
+/// Not sure why this takes 5 times longer
 pub fn reduce_variant_range(cards: [usize; 5]) -> [usize; 5] {
     //init with 8, which is > the max real value of 4
     let mut variant_map = [8 as usize; 13];
@@ -224,6 +227,18 @@ pub fn reduce_variant_range(cards: [usize; 5]) -> [usize; 5] {
         .unwrap()
 }
 
+// es gibt einen Bereich von Virtuel/Idee nach Real
+// der Bereich ist gleich undefiniert - definiert
+//   je realer die idee wird desto weniger möglichkeiten gibt es 
+//   was kommt vor der Idee
+//      eine primitive idee -> tier
+//      vorstellung vs idee?
+//   was bedingt die Idee?
+//      wissen über möglichkeiten
+//  
+
+/// Bench Results:
+/// Not sure why this takes 5ns, and the non static takes 25 sec
 pub fn reduce_variant_range_static(cards: [usize; 5]) -> [usize; 5] {
     //init with 8, which is > the max real value of 4
     let mut variant_map = [8 as usize; 13];
