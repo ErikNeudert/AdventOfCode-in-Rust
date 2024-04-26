@@ -67,6 +67,17 @@ pub fn bench_identify_hand_type(c: &mut Criterion) {
                 black_box(typ);
             })
         );
+        group.bench_with_input(BenchmarkId::new("static lookup HighCard TYP_MATRIX reduce_variant_range_half_static", idx), 
+            &input, |b, input| b.iter(|| {
+                let cards_reduced_range = reduce_variant_range_half_static(*input);
+                let typ = TYP_MATRIX[cards_reduced_range[0]]
+                    [cards_reduced_range[1]]
+                    [cards_reduced_range[2]]
+                    [cards_reduced_range[3]]
+                    [cards_reduced_range[4]];
+                black_box(typ);
+            })
+        );
     }
 
     group.finish();

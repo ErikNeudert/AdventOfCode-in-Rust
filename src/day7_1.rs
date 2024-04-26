@@ -277,6 +277,27 @@ pub fn reduce_variant_range_static(cards: [usize; 5]) -> [usize; 5] {
     return result;
 }
 
+//this has basically the same performance as the full static version
+pub fn reduce_variant_range_half_static(cards: [usize; 5]) -> [usize; 5] {
+    //init with 8, which is > the max real value of 4
+    let mut variant_map = [8 as usize; 13];
+    let mut result = [0 as usize; 5];
+    //first is always 0, result[0] therefor also 0
+    variant_map[cards[0]] = 0;
+
+    for i in 1..5 {
+        result[i] = match variant_map[cards[i]] {
+            8 => {
+                variant_map[cards[i]] = i;
+                i
+            },
+            _ => variant_map[cards[i]]
+        };
+    }
+
+    return result;
+}
+
 #[cfg(test)]
 mod tests {
     // use crate::*;
