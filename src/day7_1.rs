@@ -62,37 +62,43 @@ const fn initialize_typ_matrix() -> [[[[[Typ; 5]; 5]; 5]; 5]; 5] {
         }
         i0 += 1;
     }
-    // for i0 in 0..4 {
-    //     for i1 in 0..4 {
-    //         for i2 in 0..4 {
-    //             for i3 in 0..4 {
-    //                 for i4 in 0..4 {
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
 
     typ_matrix
 }
+        //start with number 5
+        //for each card, compare with next card.
+            //array of 13 elements:
+            //for each card, access the array at it's index. 0-12
+            //if the element doesnt exist, increment a counter and put the number at the index
+            //map the card to the counter
+
+        /* Question: How can I identify types with least card comparisos?
+        Brute force: 
+            nr accesses: 4 + 3 + 2 + 1 = 10
+            memory: 3bit counter * 5 cards = 15bit
+            compare card 1 to 2-5, note 
+            
+        Memory brute force: 
+            nr accesses: 1
+            memory: 55dim array, 5^5=3125 * (5 cards + 1 Typ)
+                all possibilities in a matrix of theoretical size:
+                    4bit required for 13 card enum possiblities,
+                    3bit for 7 Typ possibilities
+                    5cards*4bit + 1type*3bit = 23bit
+                    3125matrix points * 23bit = 9375+62500 =71875bit ~ 71kb
+
+            5^5 is only possible, if I find a way to shrink the 13 card possibilities to a range of 5
+         */
 
 //identify type based on the card similarity
 const fn identify_hand_type(cards: [usize; 5]) -> Typ {
     let mut occurrences = [0; 5];
     let mut i = 0;
-    while i < cards.len() {
-        let card1 = cards[i];
-        let mut ri = i;
-        while ri < cards.len() {
-            let card2 = cards[ri];
-            if card1 == card2 {
-                occurrences[i] += 1;
-            }
-            ri += 1;
-        }
+    while i < 5 {
+        let card = cards[i];
+        occurrences[card] += 1;
         i += 1;
     }
-
 
     let mut has_pair = false;
     let mut has_three = false;
@@ -130,52 +136,6 @@ const fn identify_hand_type(cards: [usize; 5]) -> Typ {
     }
     return Typ::HighCard;
 }
-
-
-// impl From<Vec<u8>> for Typ {
-//     fn from(cards: Vec<u8>) -> Self {
-//         //reduce to max 5 options:
-//         let mut option_counter = 0;
-//         let mut option_map: [u8; 13] /*array type*/ = [8 as u8; 13];
-//         let hand_pattern: Vec<u8> = cards.into_iter()
-//             .map(|c| to_card(c))
-//             .map(|c| {
-//                 let mut option = option_map[c];
-//                 if option == 8 { 
-//                     //only 5 values (0-4), 8 means uninitialized (only 1 bit flip from 0 -> 0000_1000 :-)
-//                     option = option_counter;
-//                     option_map[c] = option_counter;
-//                     option_counter += 1;
-//                 }
-//                 option
-//             })
-//             .collect::<Vec<u8>>();
-//         //start with number 5
-//         //for each card, compare with next card.
-//             //array of 13 elements:
-//             //for each card, access the array at it's index. 0-12
-//             //if the element doesnt exist, increment a counter and put the number at the index
-//             //map the card to the counter
-
-//         /* Question: How can I identify types with least card comparisos?
-//         Brute force: 
-//             nr accesses: 4 + 3 + 2 + 1 = 10
-//             memory: 3bit counter * 5 cards = 15bit
-//             compare card 1 to 2-5, note 
-            
-//         Memory brute force: 
-//             nr accesses: 1
-//             memory: 55dim array, 5^5=3125 * (5 cards + 1 Typ)
-//                 all possibilities in a matrix of theoretical size:
-//                     4bit required for 13 card enum possiblities,
-//                     3bit for 7 Typ possibilities
-//                     5cards*4bit + 1type*3bit = 23bit
-//                     3125matrix points * 23bit = 9375+62500 =71875bit ~ 71kb
-
-//             5^5 is only possible, if I find a way to shrink the 13 card possibilities to a range of 5
-//          */
-//     }
-// }
 
 fn to_card(char: char) -> usize {
     match char {
