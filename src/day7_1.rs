@@ -4,37 +4,62 @@ use std::io::{prelude::*, BufReader};
 pub fn run() -> std::io::Result<()> {
     let file = File::open("res/day7_1.txt")?;
     let reader = BufReader::new(file);
-    let hands: Vec<(Hand, usize)> = reader.lines()
+    let lines = reader.lines()
         .map(|line| match line {
             Ok(line) => line,
             Err(e) => panic!("Error reading line: {}", e)
-        })
-        .map(|line| parse_line(line))
-        .collect();
+        });
 
-    println!("{:?}", hands);
+
+    let mut hands: Vec<(Hand, usize)> = parse_lines(Box::new(lines));
+    sort_hands_asc(&mut hands);
+    //max rank = number of hands
+    //define weakness of hand
+    //weakest gets rank 1
+    //rank * bid = winnings
+
+    let sum: usize = hands.into_iter().enumerate()
+        .map(|(idx, (_, bid))| (idx + 1) * bid)
+        .sum();
+
+    println!("{:?}", sum);
     Ok(())
 }
 
-#[derive(Debug)]
-struct Hand {
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Hand {
     typ: Typ, 
     cards: [usize; 5]//Vec<u8>
 }
 
 //named typ to avoid type the keyword as var name 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum Typ {
-    FiveOfAKind,
-    FourOfAKind,
-    FullHouse,
-    ThreeOfAKind,
-    TwoPair,
+    //ordering is important for derived ordering, HighCard is the lowest=first element
+    HighCard,
     OnePair,
-    HighCard
+    TwoPair,
+    ThreeOfAKind,
+    FullHouse,
+    FourOfAKind,
+    FiveOfAKind,
 }
 
+fn sort_hands_asc(hands: &mut Vec<(Hand, usize)>) {
+    //ignore the bids
+    //order asc (a to b), desc is b to a
+    hands.sort_by(|a, b| a.0.cmp(&b.0));
+}
 
+// Memory brute force: 
+// nr accesses: 1
+// memory: 55dim array, 5^5=3125 * (5 cards + 1 Typ)
+//     all possibilities in a matrix of theoretical size:
+//         4bit required for 13 card enum possiblities,
+//         3bit for 7 Typ possibilities
+//         5cards*4bit + 1type*3bit = 23bit
+//         3125matrix points * 23bit = 9375+62500 =71875bit ~ 71kb
+// 5^5 is only possible, if I find a way to shrink the 13 card possibilities to a range of 5
 pub const TYP_MATRIX: [[[[[Typ; 5]; 5]; 5]; 5]; 5] = initialize_typ_matrix();
 //lets go memory brute force
 //no init time, due to const fn!! calculate at compile time
@@ -67,30 +92,6 @@ pub const fn initialize_typ_matrix() -> [[[[[Typ; 5]; 5]; 5]; 5]; 5] {
 
     typ_matrix
 }
-        //start with number 5
-        //for each card, compare with next card.
-            //array of 13 elements:
-            //for each card, access the array at it's index. 0-12
-            //if the element doesnt exist, increment a counter and put the number at the index
-            //map the card to the counter
-
-        /* Question: How can I identify types with least card comparisos?
-        Brute force: 
-            nr accesses: 4 + 3 + 2 + 1 = 10
-            memory: 3bit counter * 5 cards = 15bit
-            compare card 1 to 2-5, note 
-            
-        Memory brute force: 
-            nr accesses: 1
-            memory: 55dim array, 5^5=3125 * (5 cards + 1 Typ)
-                all possibilities in a matrix of theoretical size:
-                    4bit required for 13 card enum possiblities,
-                    3bit for 7 Typ possibilities
-                    5cards*4bit + 1type*3bit = 23bit
-                    3125matrix points * 23bit = 9375+62500 =71875bit ~ 71kb
-
-            5^5 is only possible, if I find a way to shrink the 13 card possibilities to a range of 5
-         */
 
 /// 
 /// identify type based on the card similarity
@@ -98,10 +99,6 @@ pub const fn initialize_typ_matrix() -> [[[[[Typ; 5]; 5]; 5]; 5]; 5] {
 /// variants is the count of possible different cards passed
 pub const fn identify_hand_type(cards: [usize; 5]) -> Typ {
     identify_hand_type_with_variants(cards, [0; 5])
-    // identify_hand_type_5or13(cards, true)
-}
-pub const fn identify_hand_type13(cards: [usize; 5]) -> Typ {
-    identify_hand_type_with_variants(cards, [0; 13])
 }
 pub const fn identify_hand_type_with_variants<const V: usize>(cards: [usize; 5], mut occurrences: [usize; V]) -> Typ {
     //card to occurrence count mapping
@@ -169,6 +166,11 @@ fn to_card(char: char) -> usize {
     }
 }
 
+fn parse_lines(lines: Box<dyn Iterator<Item=String>>) -> Vec<(Hand, usize)> {
+     lines.map(|line| parse_line(line))
+        .collect()
+}
+
 // 32T3K 765
 fn parse_line(line: String) -> (Hand, usize) {
     let (hand, bid) = match line.split_once(' ') {
@@ -184,10 +186,6 @@ fn parse_line(line: String) -> (Hand, usize) {
 
     let cards_reduced_range = reduce_variant_range(cards);
 
-    //reduce cards to 5
-    //map cards to range 1-5
-
-    // let typ = identify_hand_type(cards, cards_reduced_range);
     let typ = TYP_MATRIX[cards_reduced_range[0]]
                         [cards_reduced_range[1]]
                         [cards_reduced_range[2]]
@@ -202,44 +200,8 @@ fn parse_line(line: String) -> (Hand, usize) {
     (hand, bid)
 }
 
-/// reduces given values to the max 5 different usizes possible in cards, e.g. to a range of 5
-/// 
 /// Bench Results:
-/// Not sure why this takes 5 times longer
 pub fn reduce_variant_range(cards: [usize; 5]) -> [usize; 5] {
-    //init with 8, which is > the max real value of 4
-    let mut variant_map = [8 as usize; 13];
-    let mut counter = 0;
-    for source_id in cards {
-        let mut target_id = variant_map[source_id];
-        if target_id == 8 {
-            //not mapped yet
-            target_id = counter;
-            variant_map[source_id] = counter;
-            counter += 1;
-        }
-    }
-
-    cards.into_iter()
-        .map(|c| variant_map[c]) //map to reduced range equivalent
-        .collect::<Vec<usize>>()
-        .try_into()
-        .unwrap()
-}
-
-// es gibt einen Bereich von Virtuel/Idee nach Real
-// der Bereich ist gleich undefiniert - definiert
-//   je realer die idee wird desto weniger möglichkeiten gibt es 
-//   was kommt vor der Idee
-//      eine primitive idee -> tier
-//      vorstellung vs idee?
-//   was bedingt die Idee?
-//      wissen über möglichkeiten
-//  
-
-/// Bench Results:
-/// Not sure why this takes 5ns, and the non static takes 25 sec
-pub fn reduce_variant_range_static(cards: [usize; 5]) -> [usize; 5] {
     //init with 8, which is > the max real value of 4
     let mut variant_map = [8 as usize; 13];
     let mut result = [0 as usize; 5];
@@ -277,72 +239,99 @@ pub fn reduce_variant_range_static(cards: [usize; 5]) -> [usize; 5] {
     return result;
 }
 
-//this has basically the same performance as the full static version
-pub fn reduce_variant_range_half_static(cards: [usize; 5]) -> [usize; 5] {
-    //init with 8, which is > the max real value of 4
-    let mut variant_map = [8 as usize; 13];
-    let mut result = [0 as usize; 5];
-    //first is always 0, result[0] therefor also 0
-    variant_map[cards[0]] = 0;
-
-    for i in 1..5 {
-        result[i] = match variant_map[cards[i]] {
-            8 => {
-                variant_map[cards[i]] = i;
-                i
-            },
-            _ => variant_map[cards[i]]
-        };
-    }
-
-    return result;
-}
-
 #[cfg(test)]
 mod tests {
-    // use crate::*;
     use crate::day7_1::{*};
+    use std::cmp::Ordering;
 
+    #[test]
+    fn test_cmp_hands() {
+        let hand1 = Hand {
+            typ: Typ::HighCard,
+            cards: [0, 1, 2, 3, 4]
+        };
+        let hand2 = Hand {
+            typ: Typ::HighCard,
+            cards: [0, 1, 2, 3, 4]
+        };
+        assert_eq!(Ordering::Equal, hand1.cmp(&hand1));
+        assert_eq!(Ordering::Equal, hand1.cmp(&hand2));
+        let hand2 = Hand {
+            typ: Typ::HighCard,
+            cards: [1, 0, 2, 3, 4]
+        };
+        assert_eq!(Ordering::Less, hand1.cmp(&hand2));
+        let hand2 = Hand {
+            typ: Typ::OnePair,
+            cards: [1, 1, 2, 3, 4]
+        };
+        assert_eq!(Ordering::Less, hand1.cmp(&hand2));
+        let hand2 = Hand {
+            typ: Typ::OnePair,
+            cards: [0, 0, 2, 3, 4]
+        };
+        assert_eq!(Ordering::Less, hand1.cmp(&hand2));
+        let hand1 = Hand {
+            typ: Typ::FourOfAKind,
+            cards: [0, 0, 0, 0, 2]
+        };
+        let hand2 = Hand {
+            typ: Typ::FourOfAKind,
+            cards: [0, 0, 0, 0, 1]
+        };
+        assert_eq!(Ordering::Greater, hand1.cmp(&hand2));
+    }
+
+    #[test]
+    fn test_sort_hands_asc() {
+        let input = "32T3K 765\n\
+                     T55J5 684\n\
+                     KK677 28\n\
+                     KTJJT 220\n\
+                     QQQJA 483";
+        let lines = Box::new(input.split("\n")
+            .map(|line| line.to_string()));
+
+        /*
+        So, the first step is to put the hands in order of strength:
+
+            32T3K is the only one pair and the other hands are all a stronger type, 
+                so it gets rank 1.
+            KK677 and KTJJT are both two pair. Their first cards both have the 
+                same label, but the second card of KK677 is stronger (K vs T), 
+                so KTJJT gets rank 2 and KK677 gets rank 3.
+            T55J5 and QQQJA are both three of a kind. QQQJA has 
+                a stronger first card, so it gets rank 5 and T55J5 gets rank 4.
+         */
+        let mut hands = parse_lines(lines);
+        sort_hands_asc(&mut hands);
+        //compare bids
+        assert_eq!(765, hands[0].1);
+        assert_eq!(220, hands[1].1);
+        assert_eq!(28, hands[2].1);
+        assert_eq!(684, hands[3].1);
+        assert_eq!(483, hands[4].1);
+    }
+    
     #[test]
     fn test_reduce_variant_range() {
         // input == output
         assert_eq!([0, 0, 0, 0, 0], reduce_variant_range([0, 0, 0, 0, 0]));
-        assert_eq!([0, 0, 0, 0, 1], reduce_variant_range([0, 0, 0, 0, 1]));
-        assert_eq!([0, 0, 0, 1, 1], reduce_variant_range([0, 0, 0, 1, 1]));
-        assert_eq!([0, 0, 0, 1, 2], reduce_variant_range([0, 0, 0, 1, 2]));
-        assert_eq!([0, 0, 1, 1, 2], reduce_variant_range([0, 0, 1, 1, 2]));
-        assert_eq!([0, 0, 1, 2, 3], reduce_variant_range([0, 0, 1, 2, 3]));
+        assert_eq!([0, 0, 0, 0, 4], reduce_variant_range([0, 0, 0, 0, 1]));
+        assert_eq!([0, 0, 0, 3, 3], reduce_variant_range([0, 0, 0, 1, 1]));
+        assert_eq!([0, 0, 0, 3, 4], reduce_variant_range([0, 0, 0, 1, 2]));
+        assert_eq!([0, 0, 2, 2, 4], reduce_variant_range([0, 0, 1, 1, 2]));
+        assert_eq!([0, 0, 2, 3, 4], reduce_variant_range([0, 0, 1, 2, 3]));
         assert_eq!([0, 1, 2, 3, 4], reduce_variant_range([0, 1, 2, 3, 4]));
 
         //with actual different ranges
         assert_eq!([0, 0, 0, 0, 0], reduce_variant_range([12, 12, 12, 12, 12]));
-        assert_eq!([0, 0, 1, 0, 0], reduce_variant_range([3, 3, 1, 3, 3]));
+        assert_eq!([0, 0, 2, 0, 0], reduce_variant_range([3, 3, 1, 3, 3]));
         assert_eq!([0, 1, 1, 1, 0], reduce_variant_range([7, 0, 0, 0, 7]));
         assert_eq!([0, 1, 2, 2, 2], reduce_variant_range([3, 0, 2, 2, 2]));
-        assert_eq!([0, 0, 1, 1, 2], reduce_variant_range([0, 0, 11, 11, 12]));
-        assert_eq!([0, 0, 1, 2, 3], reduce_variant_range([0, 0, 7, 8, 4]));
+        assert_eq!([0, 0, 2, 2, 4], reduce_variant_range([0, 0, 11, 11, 12]));
+        assert_eq!([0, 0, 2, 3, 4], reduce_variant_range([0, 0, 7, 8, 4]));
         assert_eq!([0, 1, 2, 3, 4], reduce_variant_range([8, 9, 10, 11, 12]));
-    }
-
-    #[test]
-    fn test_reduce_variant_range_static() {
-        // input == output
-        assert_eq!([0, 0, 0, 0, 0], reduce_variant_range_static([0, 0, 0, 0, 0]));
-        assert_eq!([0, 0, 0, 0, 4], reduce_variant_range_static([0, 0, 0, 0, 1]));
-        assert_eq!([0, 0, 0, 3, 3], reduce_variant_range_static([0, 0, 0, 1, 1]));
-        assert_eq!([0, 0, 0, 3, 4], reduce_variant_range_static([0, 0, 0, 1, 2]));
-        assert_eq!([0, 0, 2, 2, 4], reduce_variant_range_static([0, 0, 1, 1, 2]));
-        assert_eq!([0, 0, 2, 3, 4], reduce_variant_range_static([0, 0, 1, 2, 3]));
-        assert_eq!([0, 1, 2, 3, 4], reduce_variant_range_static([0, 1, 2, 3, 4]));
-
-        //with actual different ranges
-        assert_eq!([0, 0, 0, 0, 0], reduce_variant_range_static([12, 12, 12, 12, 12]));
-        assert_eq!([0, 0, 2, 0, 0], reduce_variant_range_static([3, 3, 1, 3, 3]));
-        assert_eq!([0, 1, 1, 1, 0], reduce_variant_range_static([7, 0, 0, 0, 7]));
-        assert_eq!([0, 1, 2, 2, 2], reduce_variant_range_static([3, 0, 2, 2, 2]));
-        assert_eq!([0, 0, 2, 2, 4], reduce_variant_range_static([0, 0, 11, 11, 12]));
-        assert_eq!([0, 0, 2, 3, 4], reduce_variant_range_static([0, 0, 7, 8, 4]));
-        assert_eq!([0, 1, 2, 3, 4], reduce_variant_range_static([8, 9, 10, 11, 12]));
     }
 
     #[test]

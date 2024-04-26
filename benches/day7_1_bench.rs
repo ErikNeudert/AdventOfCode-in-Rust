@@ -1,5 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
 use rust_aoc::day7_1::*;
+use rust_aoc::day7_1_slow_methods::*;
 
 pub fn bench_initialize_typ_matrix(c: &mut Criterion) {
     c.bench_function("initialize_typ_matrix", |b| b.iter(|| black_box(initialize_typ_matrix())));
@@ -13,15 +14,15 @@ pub fn bench_identify_hand_type(c: &mut Criterion) {
         [0, 3, 9, 5, 12]
     ];
     for (idx, input) in inputs.into_iter().enumerate() {
-        group.bench_with_input(BenchmarkId::new("reduce_variant_range", idx), 
+        group.bench_with_input(BenchmarkId::new("reduce_variant_range_slow", idx), 
             &input, |b, input| b.iter(|| {
-                let cards_reduced_range = reduce_variant_range(*input);
+                let cards_reduced_range = reduce_variant_range_slow(*input);
                 black_box(cards_reduced_range);
             })
         );
-        group.bench_with_input(BenchmarkId::new("reduce_variant_range_static", idx), 
+        group.bench_with_input(BenchmarkId::new("reduce_variant_range", idx), 
             &input, |b, input| b.iter(|| {
-                let cards_reduced_range = reduce_variant_range_static(*input);
+                let cards_reduced_range = reduce_variant_range(*input);
                 black_box(cards_reduced_range);
             })
         );
@@ -32,9 +33,9 @@ pub fn bench_identify_hand_type(c: &mut Criterion) {
                 black_box(typ);
             })
         );
-        group.bench_with_input(BenchmarkId::new("dynamic lookup HighCard reduce_variant_range_static", idx), 
+        group.bench_with_input(BenchmarkId::new("dynamic lookup HighCard reduce_variant_range", idx), 
             &input, |b, input| b.iter(|| {
-                let cards_reduced_range = reduce_variant_range_static(*input);
+                let cards_reduced_range = reduce_variant_range(*input);
                 let typ = identify_hand_type(cards_reduced_range);
                 black_box(typ);
             })
@@ -56,9 +57,9 @@ pub fn bench_identify_hand_type(c: &mut Criterion) {
                 black_box(typ);
             })
         );
-        group.bench_with_input(BenchmarkId::new("static lookup HighCard TYP_MATRIX reduce_variant_range_static", idx), 
+        group.bench_with_input(BenchmarkId::new("static lookup HighCard TYP_MATRIX reduce_variant_range", idx), 
             &input, |b, input| b.iter(|| {
-                let cards_reduced_range = reduce_variant_range_static(*input);
+                let cards_reduced_range = reduce_variant_range(*input);
                 let typ = TYP_MATRIX[cards_reduced_range[0]]
                     [cards_reduced_range[1]]
                     [cards_reduced_range[2]]
@@ -99,7 +100,7 @@ pub fn bench_reduce_variant_range(c: &mut Criterion) {
         );
         group.bench_with_input(BenchmarkId::new("static", idx), 
             &input, |b, input| b.iter(|| {
-                let cards_reduced_range = reduce_variant_range_static(*input);
+                let cards_reduced_range = reduce_variant_range(*input);
                 black_box(cards_reduced_range);
             })
         );
