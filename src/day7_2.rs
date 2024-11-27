@@ -1,6 +1,6 @@
+use crate::day7_1::{Hand, Typ, sort_hands_asc};
 use std::fs::File;
-use std::io::{prelude::*, BufReader};
-use crate::day7_1::{self, Hand, Typ, TYP_MATRIX};
+use std::io::{BufReader, BufRead};
 
 pub fn run() -> std::io::Result<()> {
     /*
@@ -10,7 +10,41 @@ pub fn run() -> std::io::Result<()> {
        and check from best to worst in teh identify hand function,
        counting all J's for each comparison
     */
-    day7_1::run()
+    let file = File::open("res/day7_1.txt")?;
+    let reader = BufReader::new(file);
+    let lines = reader.lines()
+        .map(|line| match line {
+            Ok(line) => line,
+            Err(e) => panic!("Error reading line: {}", e)
+        });
+
+    
+    //max rank = number of hands
+    //define weakness of hand
+    //weakest gets rank 1
+    //rank * bid = winnings
+    
+    // print the parsed values and the original line
+    // let mut hands = parse_lines_with_line(Box::new(lines));
+    // sort_hands_asc_with_line(&mut hands);
+    // hands.into_iter()
+    //     .for_each(|((hand, bid), line)| 
+    //         println!("{:?} {} - {}", hand, bid, line));
+        
+    let mut hands = parse_lines(Box::new(lines));
+    sort_hands_asc(&mut hands);
+    let sum: usize = hands.into_iter().enumerate()
+        .map(|(idx, (_, bid))| (idx + 1) * bid)
+        .sum();
+    println!("{:?}", sum);
+    
+    Ok(())
+}
+
+pub fn sort_hands_asc_with_line(hands: &mut Vec<((Hand, usize), String)>) {
+    //ignore the bids
+    //order asc (a to b), desc is b to a
+    hands.sort_by(|(a, _), (b, _)| a.0.cmp(&b.0));
 }
 
 fn to_card(char: char) -> usize {
@@ -33,8 +67,13 @@ fn to_card(char: char) -> usize {
 }
 
 fn parse_lines(lines: Box<dyn Iterator<Item=String>>) -> Vec<(Hand, usize)> {
-     lines.map(|line| parse_line(line))
-        .collect()
+    lines.map(|line| parse_line(line))
+       .collect()
+}
+
+fn parse_lines_with_line(lines: Box<dyn Iterator<Item=String>>) -> Vec<((Hand, usize), String)> {
+    lines.map(|line| (parse_line(line.clone()), line))
+       .collect()
 }
 
 // T55J5 684
@@ -91,7 +130,7 @@ pub fn reduce_variant_range(cards: [usize; 5]) -> [usize; 5] {
 
 //cards can contain a nr'5' meaning Joker.
 //joker counts towards all possibilities and evaluates to the best.
-pub const fn identify_hand_type(cards: [usize; 5]) -> Typ {
+pub fn identify_hand_type(cards: [usize; 5]) -> Typ {
     //card to occurrence count mapping
     let mut occurrences = [0 as usize; 6]; //up to 4 normal cards + 1 joker at position 5
     let mut i = 0;
@@ -102,6 +141,10 @@ pub const fn identify_hand_type(cards: [usize; 5]) -> Typ {
     }
     //joker is the 6th extra option in a pattern
     let mut joker_count = occurrences[5];
+    occurrences[5] = 0; //reset joker count, so that we can sort the values correctly
+
+    occurrences.sort();
+    occurrences.reverse(); //descending, so that we can check the best first
 
     //make sure best is checked first, including the joker_count
     let mut has_pair = false;
@@ -117,15 +160,15 @@ pub const fn identify_hand_type(cards: [usize; 5]) -> Typ {
             return Typ::FourOfAKind;
         }
         if occurrence == 3 {
-            if has_pair || has_three {
+            if has_pair {
                 //two pairs and a joker
                 return Typ::FullHouse;
             } else {
                 //is this even possible? that two comes before three?
                 //does it matter to which pair I add the joker, if two pairs and a joker exist?
                 //11J22 
-                // joker_count = 0; //joker is used up
                 has_three = true;
+                joker_count = 0; //reset joker count, as it's used
             }
         }
         if occurrence == 2 {
@@ -134,8 +177,8 @@ pub const fn identify_hand_type(cards: [usize; 5]) -> Typ {
             } else if has_three {
                 return Typ::FullHouse;
             } else {
-                // joker_count = 0; //joker is used up
                 has_pair = true;
+                joker_count = 0; //reset joker count, as it's used
             }
         }
         i += 1;
@@ -152,8 +195,7 @@ pub const fn identify_hand_type(cards: [usize; 5]) -> Typ {
 mod tests {
     use crate::day7_2::{*};
     use crate::day7_1::{sort_hands_asc, initialize_typ_matrix};
-    use std::cmp::Ordering;
-
+    
     #[test]
     fn test_to_card() { 
         assert!(to_card('J') < to_card('2'));
@@ -170,13 +212,49 @@ mod tests {
 
         //new J rule:
         let mut hands = parse_lines(lines);
+        assert_eq!(Typ::OnePair, hands[0].0.typ);
+        assert_eq!(Typ::FourOfAKind, hands[1].0.typ);
+        assert_eq!(Typ::TwoPair, hands[2].0.typ);
+        assert_eq!(Typ::FourOfAKind, hands[3].0.typ);
+        assert_eq!(Typ::FourOfAKind, hands[4].0.typ);
+
+        assert_eq!(765, hands[0].1); //32T3K
+        assert_eq!(684, hands[1].1); //T55J5
+        assert_eq!(28, hands[2].1);  //KK677
+        assert_eq!(220, hands[3].1); //KTJJT
+        assert_eq!(483, hands[4].1); //QQQJA
+
         sort_hands_asc(&mut hands);
         //compare bids
+        assert_eq!(Typ::OnePair, hands[0].0.typ);
+        assert_eq!(Typ::TwoPair, hands[1].0.typ);
+        assert_eq!(Typ::FourOfAKind, hands[2].0.typ);
+        assert_eq!(Typ::FourOfAKind, hands[3].0.typ);
+        assert_eq!(Typ::FourOfAKind, hands[4].0.typ);
+
         assert_eq!(765, hands[0].1); //32T3K
         assert_eq!(28, hands[1].1);  //KK677
         assert_eq!(684, hands[2].1); //T55J5
         assert_eq!(483, hands[3].1); //QQQJA
         assert_eq!(220, hands[4].1); //KTJJT
+    }
+
+    #[test]
+    fn test_hands_of_example() {
+        let input = "QQQQ2 1\n\
+                     JKKK2 2";
+        let lines = Box::new(input.split("\n")
+            .map(|line| line.to_string()));
+
+        //new J rule:
+        let mut hands = parse_lines(lines);
+        assert_eq!(1, hands[0].1); //QQQQ2
+        assert_eq!(2, hands[1].1);  //JKKK2
+
+        sort_hands_asc(&mut hands);
+        //compare bids
+        assert_eq!(2, hands[0].1);
+        assert_eq!(1, hands[1].1);
     }
 
     #[test]
@@ -220,14 +298,48 @@ mod tests {
         let (hand, bid): (Hand, usize) = parse_line(input.to_string());
 
         assert_eq!(Typ::FourOfAKind, hand.typ);
-        assert_eq!([1, 0, 8, 0, 11], hand.cards);
-        assert_eq!(765, bid);
+        assert_eq!([9, 4, 4, 0, 4], hand.cards);
+        assert_eq!(684, bid);
     }
+
     #[test]
     fn test_reduce_variant_range() {
         // input == output
         assert_eq!([5, 5, 5, 5, 5], reduce_variant_range([0, 0, 0, 0, 0]));
         assert_eq!([0, 1, 0, 3, 5], reduce_variant_range([2, 3, 2, 4, 0]));
+    }
+
+    #[test]
+    fn test_problem_with_full_hourse() {
+        // Hand { typ: FullHouse, cards: [0, 2, 9, 2, 12] } 674 - J3T3A 674
+        let input = "J3T3A 674";
+        let (hand, bid): (Hand, usize) = parse_line(input.to_string());
+
+        assert_eq!(Typ::ThreeOfAKind, hand.typ);
+        assert_eq!([0, 2, 9, 2, 12], hand.cards);
+        assert_eq!(674, bid);
+    }
+
+    #[test]
+    fn test_problem_with_full_hourse2() {
+        // Hand { typ: FullHouse, cards: [0, 2, 9, 2, 12] } 674 - J3T3A 674
+        let input = "KTJJT 674";
+        let (hand, bid): (Hand, usize) = parse_line(input.to_string());
+
+        assert_eq!(Typ::FourOfAKind, hand.typ);
+        assert_eq!([11, 9, 0, 0, 9], hand.cards);
+        assert_eq!(674, bid);
+    }
+
+    #[test]
+    fn test_problem_with_full_hourse3() {
+        // Hand { typ: FullHouse, cards: [0, 1, 6, 6, 11] } 633 - J277K 633
+        let input = "J277K 633";
+        let (hand, bid): (Hand, usize) = parse_line(input.to_string());
+
+        assert_eq!(Typ::ThreeOfAKind, hand.typ);
+        assert_eq!([0, 1, 6, 6, 11], hand.cards);
+        assert_eq!(633, bid);
     }
 
 }
