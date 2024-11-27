@@ -28,8 +28,8 @@ pub fn run() -> std::io::Result<()> {
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Hand {
-    typ: Typ, 
-    cards: [usize; 5]//Vec<u8>
+    pub typ: Typ, 
+    pub cards: [usize; 5]//Vec<u8>
 }
 
 //named typ to avoid type the keyword as var name 
@@ -45,7 +45,7 @@ pub enum Typ {
     FiveOfAKind,
 }
 
-fn sort_hands_asc(hands: &mut Vec<(Hand, usize)>) {
+pub fn sort_hands_asc(hands: &mut Vec<(Hand, usize)>) {
     //ignore the bids
     //order asc (a to b), desc is b to a
     hands.sort_by(|a, b| a.0.cmp(&b.0));
@@ -98,9 +98,7 @@ pub const fn initialize_typ_matrix() -> [[[[[Typ; 5]; 5]; 5]; 5]; 5] {
 /// 
 /// variants is the count of possible different cards passed
 pub const fn identify_hand_type(cards: [usize; 5]) -> Typ {
-    identify_hand_type_with_variants(cards, [0; 5])
-}
-pub const fn identify_hand_type_with_variants<const V: usize>(cards: [usize; 5], mut occurrences: [usize; V]) -> Typ {
+    let mut occurrences = [0 as usize; 5];
     //card to occurrence count mapping
     let mut i = 0;
     while i < 5 {

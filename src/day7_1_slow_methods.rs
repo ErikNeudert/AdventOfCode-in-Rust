@@ -40,10 +40,10 @@ pub fn reduce_variant_range_slow(cards: [usize; 5]) -> [usize; 5] {
     let mut variant_map = [8 as usize; 13];
     let mut counter = 0;
     for source_id in cards {
-        let mut target_id = variant_map[source_id];
+        let target_id = variant_map[source_id];
         if target_id == 8 {
             //not mapped yet
-            target_id = counter;
+            // target_id = counter; //why is this not needed, what was my idea?
             variant_map[source_id] = counter;
             counter += 1;
         }
@@ -57,9 +57,7 @@ pub fn reduce_variant_range_slow(cards: [usize; 5]) -> [usize; 5] {
 }
 
 pub const fn identify_hand_type13(cards: [usize; 5]) -> Typ {
-    identify_hand_type_with_variants(cards, [0; 13])
-}
-pub const fn identify_hand_type_with_variants<const V: usize>(cards: [usize; 5], mut occurrences: [usize; V]) -> Typ {
+    let mut occurrences = [0 as usize; 13];
     //card to occurrence count mapping
     let mut i = 0;
     while i < 5 {
@@ -71,7 +69,7 @@ pub const fn identify_hand_type_with_variants<const V: usize>(cards: [usize; 5],
     let mut has_pair = false;
     let mut has_three = false;
     let mut i = 0;
-    while i < occurrences.len() {
+    while i < 13 {
         let occurrence = occurrences[i];
         //does the compiler optimize to shortcut occurrence == 0?
         if occurrence == 5 {
