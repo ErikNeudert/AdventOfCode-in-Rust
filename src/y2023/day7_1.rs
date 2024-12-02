@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{prelude::*, BufReader};
 
 pub fn run() -> std::io::Result<()> {
-    let file = File::open("res/day7_1.txt")?;
+    let file = File::open("res/y2023/day7_1.txt")?;
     let reader = BufReader::new(file);
     let lines = reader.lines()
         .map(|line| match line {
@@ -239,7 +239,7 @@ pub fn reduce_variant_range(cards: [usize; 5]) -> [usize; 5] {
 
 #[cfg(test)]
 mod tests {
-    use crate::day7_1::{*};
+    use crate::y2023::day7_1::{*};
     use std::cmp::Ordering;
 
     #[test]

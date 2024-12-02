@@ -27,7 +27,7 @@ fn main() -> std::io::Result<()> {
 
     //add up the IDs of the games that would have been possible, you get 8.
         
-    let file = File::open("res/day3_1.txt")?;
+    let file = File::open("res/y2023/day3_1.txt")?;
     let reader = BufReader::new(file);
     let mut map = BTreeMap::new();
 
@@ -235,7 +235,7 @@ impl Point {
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
+    use super::*;
 
     #[test]
     fn test_extract_numeric() {
@@ -261,7 +261,7 @@ mod tests {
 
     #[test]
     fn test_fill_map_from_text() -> Result<(), io::Error> {
-        let file = File::open("res/day3.test.txt")?;
+        let file = File::open("res/y2023/day3.test.txt")?;
         let reader = BufReader::new(file);
         let mut actual_map = BTreeMap::new();
         fill_map_from_text(reader, &mut actual_map)?;
@@ -360,7 +360,7 @@ mod tests {
         // x.123.x
         // .x.x.x.
         // x.x.x.x
-        let file = File::open("res/day3.test2.txt")?;
+        let file = File::open("res/y2023/day3.test.txt")?;
         let reader = BufReader::new(file);
         let mut map = BTreeMap::new();
         fill_map_from_text(reader, &mut map)?;

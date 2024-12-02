@@ -1,5 +1,6 @@
-use rust_aoc::day7_2;
+mod y2023;
+mod y2024;
 
 fn main() -> std::io::Result<()> {
-    day7_2::run()
+    y2024::day2_2::run()
 }

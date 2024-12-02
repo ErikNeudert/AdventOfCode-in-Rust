@@ -2,12 +2,9 @@ use std::fs::File;
 use std::io::{prelude::*, BufReader};
 // use std::io::{BufReader};
 use std::collections::HashMap;
-use std::thread;
-use std::sync::Mutex;
-use std::sync::Arc;
 
 fn main() -> std::io::Result<()> {
-    let file = File::open("res/day5_1.txt")?;
+    let file = File::open("res/y2023/day5_1.txt")?;
     let reader = BufReader::new(file);
     let lines = reader.lines()
         .map(|line| match line {
@@ -15,66 +12,18 @@ fn main() -> std::io::Result<()> {
             Err(e) => panic!("Error reading line: {}", e)
         });
     let almanac: Almanac = parse_almanac(Box::new(lines));
-    
-    let result_mutex: Arc<Mutex<Vec<usize>>> = Arc::new(Mutex::new(vec![]));
-    let almanac_arc: Arc<Almanac> = Arc::new(almanac);
-    let mut handles = vec![];
 
-    for (seed, count) in almanac_arc.seeds.clone() {
-        println!("task for seed: {}", seed);
-        let almanac_arc: Arc<Almanac> = Arc::clone(&almanac_arc);
-        let result_arc = Arc::clone(&result_mutex);
+    let min_location = almanac.seeds.clone().into_iter()
+        .map(|seed| find_destination_mapping(&almanac, ("seed", "location"), seed))
+        .min();
 
-        let task = CalculationTask::new((seed, count), almanac_arc, result_arc);
-        handles.push(task.start());
-    }
-
-    for handle in handles {
-        let handle_str = format!("{:?}", handle);
-        println!(" + waiting for handle {:?}", handle_str);
-        handle.join().unwrap();
-        println!(" - joined handle {:?}", handle_str);
-    }
-
-    let res: Vec<usize> = result_mutex.lock().unwrap().to_vec();
-    println!("Result: {:?}", res.into_iter()
-            .min());
+    println!("min loc: {:?}", min_location);
 
     Ok(())
 }
 
-struct CalculationTask {
-    range: (usize, usize),
-    almanac: Arc<Almanac>,
-    result: Arc<Mutex<Vec<usize>>>,
-}
-
-impl CalculationTask {
-    fn new(range: (usize, usize), almanac: Arc<Almanac>, result: Arc<Mutex<Vec<usize>>>) -> Self {
-        CalculationTask {
-            range: range,
-            almanac: almanac.clone(),
-            result: result.clone(),
-        }
-    }
-    fn start(&self) -> thread::JoinHandle<()> {
-        let (seed, count) = self.range;
-        let almanac = self.almanac.clone();
-        let result = self.result.clone();
-
-        return thread::spawn(move || { 
-            println!("calculating seed: {}", seed);
-            for num in seed..(count + seed) {
-                let res = find_destination_mapping(&*almanac, ("seed", "location"), num);
-                let mut results = result.lock().unwrap();
-                results.push(res);
-            }
-        });
-    }
-}
-
 struct Almanac {//almanac manager/handler
-    seeds: Vec<(usize, usize)>,
+    seeds: Vec<usize>,
     //maps source to Map providing source -> target ranges
     maps: HashMap<String, AlmanacMap>
     //not sure if Map<str, Vec<AlmanacMap>> would be required, or if these are 1-1 mappings
@@ -180,7 +129,7 @@ fn find_destination_mapping(almanac: &Almanac, from_to: (&str, &str), source_val
 //almanac is the 'newspaper' containing the crop and weather information for farmers
 fn parse_almanac<'a>(mut lines: Box<dyn Iterator<Item=String>>) -> Almanac {
     let seeds_line = lines.next().expect("'seeds' line required");
-    let seeds: Vec<(usize, usize)> = parse_seed_line(&seeds_line);
+    let seeds: Vec<usize> = parse_seed_line(&seeds_line);
     assert_eq!("", lines.next().expect("expected empty line spacing"), "expected empty line");
     let maps: HashMap<String, AlmanacMap> = parse_almanac_maps(lines);
     //first line should contain 
@@ -272,32 +221,17 @@ fn parse_map_name(line: String) -> (String, String) {
     return (split.0.to_string(), split.1.to_string());
 }
 
-fn parse_seed_line(line: &str) -> Vec<(usize, usize)> {
-    let mut number_iterator = line.strip_prefix("seeds:").expect("Line should start with 'seeds:'")
+fn parse_seed_line(line: &str) -> Vec<usize> {
+    line.strip_prefix("seeds:").expect("Line should start with 'seeds:'")
         .split_whitespace()
         .into_iter()
         .map(|str| str.parse::<usize>().expect(&format!("Could not parse {str}")))
-        .collect::<Vec<usize>>()
-        .into_iter();
-
-    let mut ranges: Vec<(usize, usize)> = vec![];
-    loop {
-        let start = match number_iterator.next() {
-            Some(val) => val,
-            None => break //no more values
-        }; 
-        let count = match number_iterator.next() {
-            Some(val) => val,
-            None => panic!("Seed lines have to be dividable by two!")
-        }; 
-        ranges.push((start, count));
-    }
-    return ranges;
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
+    use super::*;
 
     #[test]
     fn test_find_bridging_maps() {
@@ -409,11 +343,13 @@ mod tests {
             .map(|line| line.to_string()));
         
         let almanac: Almanac = parse_almanac(lines);
-        assert_eq!(2, almanac.seeds.len());
+        assert_eq!(4, almanac.seeds.len());
         
-        assert_eq!((79, 14), almanac.seeds[0]);
-        assert_eq!((55, 13), almanac.seeds[1]);
-        
+        assert_eq!(79, almanac.seeds[0]);
+        assert_eq!(14, almanac.seeds[1]);
+        assert_eq!(55, almanac.seeds[2]);
+        assert_eq!(13, almanac.seeds[3]);
+
         assert_eq!(2, almanac.maps.len());
         let map1: &AlmanacMap = almanac.maps.get(&"seed".to_string()).unwrap();
         assert_eq!("seed", map1.from);
@@ -502,10 +438,12 @@ mod tests {
     #[test]
     fn test_parse_seed_line() {
         let line = "seeds: 79 14 55 13";
-        let seeds: Vec<(usize, usize)> = parse_seed_line(line);
-        assert_eq!(2, seeds.len());
+        let seeds: Vec<usize> = parse_seed_line(line);
+        assert_eq!(4, seeds.len());
         
-        assert_eq!((79, 14), seeds[0]);
-        assert_eq!((55, 13), seeds[1]);
+        assert_eq!(79, seeds[0]);
+        assert_eq!(14, seeds[1]);
+        assert_eq!(55, seeds[2]);
+        assert_eq!(13, seeds[3]);
     }
 }

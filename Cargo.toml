@@ -13,5 +13,5 @@ peak_alloc = "0.2.0"
 criterion = "0.3"
 
 [[bench]]
-name = "day7_1_bench"
+name = "2023_day7_1_bench"
 harness = false

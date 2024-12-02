@@ -1,4 +1,4 @@
-use crate::day7_1::*;
+use crate::y2023::day7_1::*;
 
 //following the slower versions of card reduction and hand determination for comparison:
 
@@ -106,8 +106,8 @@ pub const fn identify_hand_type13(cards: [usize; 5]) -> Typ {
 
 #[cfg(test)]
 mod tests {
-    // use crate::*;
-    use crate::day7_1_slow_methods::{*};
+    // use super::*;
+    use crate::y2023::day7_1_slow_methods::{*};
 
     #[test]
     fn test_reduce_variant_range_slow() {

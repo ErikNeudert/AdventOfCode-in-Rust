@@ -63,7 +63,7 @@ impl From<&str> for SetOfCube {
 }
 
 fn _main() -> std::io::Result<()> {
-    let file = File::open("res/day2.1.txt")?;
+    let file = File::open("res/y2023/day2.1.txt")?;
     let reader = BufReader::new(file);
     //12 red cubes, 13 green cubes, and 14 blue cubes
     let max_red_cubes = 12;
@@ -92,8 +92,8 @@ fn _main() -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
-
+    use super::*;
+    
     #[test]
     fn test_create_game() {
         let input = "Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green";

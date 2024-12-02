@@ -6,7 +6,7 @@ fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "debug");
     env_logger::init();
 
-    let file = File::open("res/day4_1.txt")?;
+    let file = File::open("res/y2023/day4_1.txt")?;
     let reader = BufReader::new(file);
     
     let cards: Vec<Card> = parse_lines(Box::new(reader.lines()));
@@ -96,7 +96,7 @@ fn parse_line(line: &str) -> Card {
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
+    use super::*;
 
     #[test]
     fn test_calculate_cards_counts() {

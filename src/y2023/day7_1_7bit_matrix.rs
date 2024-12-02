@@ -1,5 +1,5 @@
 // use crate::day7_1::{Hand, Typ};
-use crate::day7_1::{Typ};
+use crate::y2023::day7_1::Typ;
 
 /*
 git commit -m "Day 7.1: trying 7bit matrix access
@@ -202,7 +202,7 @@ pub fn reduce_variant_range_bit_shift(cards: [usize; 5]) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::day7_1_7bit_matrix::{*};
+    use crate::y2023::day7_1_7bit_matrix::{*};
 
     #[test]
     fn test_reduce_variant_range_bit_shift() {

@@ -1,4 +1,4 @@
-use crate::day7_1::{Hand, Typ, sort_hands_asc};
+use crate::y2023::day7_1::{Hand, Typ, sort_hands_asc};
 use std::fs::File;
 use std::io::{BufReader, BufRead};
 
@@ -10,7 +10,7 @@ pub fn run() -> std::io::Result<()> {
        and check from best to worst in teh identify hand function,
        counting all J's for each comparison
     */
-    let file = File::open("res/day7_1.txt")?;
+    let file = File::open("res/y2023/day7_1.txt")?;
     let reader = BufReader::new(file);
     let lines = reader.lines()
         .map(|line| match line {
@@ -193,8 +193,8 @@ pub fn identify_hand_type(cards: [usize; 5]) -> Typ {
 
 #[cfg(test)]
 mod tests {
-    use crate::day7_2::{*};
-    use crate::day7_1::{sort_hands_asc, initialize_typ_matrix};
+    use crate::y2023::day7_2::{*};
+    use crate::y2023::day7_1::{sort_hands_asc, initialize_typ_matrix};
     
     #[test]
     fn test_to_card() { 

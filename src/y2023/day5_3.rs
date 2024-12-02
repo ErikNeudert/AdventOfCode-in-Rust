@@ -1,6 +1,5 @@
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
-// use std::io::{BufReader};
 use std::collections::HashMap;
 use std::fmt;
 use peak_alloc::PeakAlloc;
@@ -10,8 +9,13 @@ static PEAK_ALLOC: PeakAlloc = PeakAlloc;
 
 const DEBUG_PRINTLN: bool = false;
 
+#[macro_export]
+macro_rules! debug {
+    ($($x:tt)*) => { if DEBUG_PRINTLN { println!($($x)*); } }
+}
+
 fn main() -> std::io::Result<()> {
-    let file = File::open("res/day5_1.txt")?;
+    let file = File::open("res/y2023/day5_1.txt")?;
     let reader = BufReader::new(file);
     let lines = reader.lines()
         .map(|line| match line {
@@ -74,11 +78,6 @@ fn main() -> std::io::Result<()> {
 //98 for 50, 99 for 51
 //
 // almanac, "seed", "fertilizer", 79);
-
-#[macro_export]
-macro_rules! debug {
-    ($($x:tt)*) => { if DEBUG_PRINTLN { println!($($x)*); } }
-}
 
 
 //only works single, e.g.
@@ -401,7 +400,7 @@ fn parse_seed_line(line: &str) -> Vec<(usize, usize)> {
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
+    use super::*;
 
     #[test]
     fn test_find_bridging_maps() {

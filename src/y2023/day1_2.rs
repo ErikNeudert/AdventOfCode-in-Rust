@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{prelude::*, BufReader};
 
 fn main() -> std::io::Result<()> {
-    let file = File::open("res/day1.2.txt")?;
+    let file = File::open("res/y2023/day1.2.txt")?;
     let reader = BufReader::new(file);
 
     let mut sum = 0;

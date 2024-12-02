@@ -1,11 +1,10 @@
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
 
-mod day2_1;
-use crate::day2_1::Game;
+use crate::y2023::day2_1::Game;
 
 fn main() -> std::io::Result<()> {
-    let file = File::open("res/day2.2.txt")?;
+    let file = File::open("res/y2023/day2.2.txt")?;
     let reader = BufReader::new(file);
 
     //add up the IDs of the games that would have been possible, you get 8.

@@ -1,6 +1,6 @@
 // use crate::day7_1::{Hand, Typ};
-use crate::day7_1::{Typ};
-use crate::day7_1_slow_methods;
+use crate::y2023::day7_1::Typ;
+use crate::y2023::day7_1_slow_methods;
 
 // Memory brute force: 
 // nr accesses: 1
@@ -46,7 +46,7 @@ pub const fn initialize_typ_matrix_13() -> [[[[[Typ; MATRIX_LEN]; MATRIX_LEN]; M
 
 #[cfg(test)]
 mod tests {
-    use crate::day7_1_matrix_13::{*};
+    use crate::y2023::day7_1_matrix_13::{*};
 
     #[test]
     fn test_initialize_typ_matrix_13() {

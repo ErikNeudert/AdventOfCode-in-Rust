@@ -1,7 +1,6 @@
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
 use std::collections::BTreeMap;
-use std::ops::Bound::Included;
 use std::iter::Peekable;
 use std::io::{self};
 use std::iter::Enumerate;
@@ -38,7 +37,7 @@ fn main() -> std::io::Result<()> {
     // (The * adjacent to 617 is not a gear because it is only adjacent to one part number.) 
     // Adding up all of the gear ratios produces 467835.
 
-    let file = File::open("res/day3_1.txt")?;
+    let file = File::open("res/y2023/day3_1.txt")?;
     let reader = BufReader::new(file);
     let mut grid = Grid::new();
 
@@ -296,7 +295,8 @@ impl Point {
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
+    use super::*;
+    use std::ops::Bound::Included;
 
     #[test]
     fn test_grid() {
@@ -305,7 +305,7 @@ mod tests {
 
     #[test]
     fn test_fill_map_from_text() -> Result<(), io::Error> {
-        let file = File::open("res/day3.test.txt")?;
+        let file = File::open("res/y2023/day3.test.txt")?;
         let reader = BufReader::new(file);
         let mut grid = Grid::new();
         fill_map_from_text(Box::new(reader.lines()), &mut grid)?;

@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{prelude::*, BufReader};
 
 fn main() -> std::io::Result<()> {
-    let file = File::open("res/day6_1.txt")?;
+    let file = File::open("res/y2023/day6_1.txt")?;
     let reader = BufReader::new(file);
     let lines = reader.lines()
         .map(|line| match line {
@@ -131,7 +131,7 @@ fn parse_input(mut iterator: Box<dyn Iterator<Item=String>>) -> RaceSheet {
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
+    use super::*;
 
     #[test]
     fn test_calculate_winning_range() {

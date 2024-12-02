@@ -1,9 +1,9 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
 // qualify directly for better readability
-use rust_aoc::day7_1;
-use rust_aoc::day7_1_slow_methods;
-use rust_aoc::day7_1_7bit_matrix;
-use rust_aoc::day7_1_matrix_13;
+use rust_aoc::y2023::day7_1;
+use rust_aoc::y2023::day7_1_slow_methods;
+use rust_aoc::y2023::day7_1_7bit_matrix;
+use rust_aoc::y2023::day7_1_matrix_13;
 
 pub fn bench_initialize_typ_matrix(c: &mut Criterion) {
     let mut group = c.benchmark_group("initialize_typ_matrix");
